@@ -4,9 +4,17 @@ Fonte da verdade: `Trabalho Final.pdf`. **[PDF]** = literal; **[DERIVADO]** = in
 
 ## Essência
 - Paper ≤ 10 págs, template SBC em LaTeX, sobre índices, plano de execução e otimização de consultas (7,0).
-- Experimentos em SGBD comercial (não MySQL), com resultados no artigo.
+- Experimentos no **Microsoft SQL Server Developer** (via Docker Desktop), com resultados no artigo ([justificativa](../comparativo-sgbds.md)).
 - Apresentação ≤ 20 min, demo bem-vinda (3,0).
 - Submissão **17/11/2026**; apresentação **18 e 19/11/2026**.
+
+## Status Atual (13/11/2026)
+- [x] Enunciado analisado e requisitos mapeados.
+- [x] SGBD definido: **SQL Server Developer** (Docker).
+- [x] Hardware e ferramentas locais diagnosticados (Docker Desktop, Python/`uv`, MiKTeX `pdflatex` instalados).
+- [ ] Abrir Docker Desktop e subir o container do SQL Server.
+- [ ] Definir e carregar o dataset ($\ge 1$ milhão de linhas).
+- [ ] Baixar template SBC e iniciar experimentos de baseline (`Q1`–`Q10`, `W1`).
 
 ## Mapa
 | Arquivo | Conteúdo |

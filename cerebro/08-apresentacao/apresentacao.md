@@ -13,6 +13,6 @@
 Ensaie com cronômetro. Confirme com o professor se as perguntas contam nos 20 min.
 
 ## Demo
-- Scripts numerados (`01_baseline.sql`, `02_indices.sql`…) e dados já carregados.
-- Mostrar plano gráfico antes/depois e `STATISTICS IO/TIME`. Limite a 3–4 consultas.
-- Backup: vídeo ou prints. Teste no computador/projetor da apresentação, com o SGBD já iniciado.
+- Scripts numerados (`01_baseline.sql`, `02_indices.sql`…) e dados já carregados no container SQL Server Developer.
+- Mostrar plano gráfico antes/depois (via SSMS ou extensão `mssql` do VS Code) e `SET STATISTICS IO, TIME ON`. Limite a 3–4 consultas.
+- Backup: vídeo ou prints. Teste no computador/projetor da apresentação, com o Docker e o container do SQL Server já iniciados.

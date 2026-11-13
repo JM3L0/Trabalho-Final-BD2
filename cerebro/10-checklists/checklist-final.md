@@ -1,6 +1,15 @@
 # Checklist final
 
+## Setup & Experimentação (pré-paper)
+- [x] SGBD comercial (não MySQL) escolhido: **SQL Server Developer**
+- [ ] Docker Desktop iniciado e container SQL Server 2022 Developer rodando
+- [ ] Cliente gráfico conectado (VS Code `mssql` ou SSMS)
+- [ ] Dataset ($\ge 1$ milhão de linhas) definido e carregado
+- [ ] Versão exata (`SELECT @@VERSION;`) e métricas de ambiente registradas
+- [ ] Baseline (`Q1`–`Q10`, `W1`) + otimizações rodados com $N \ge 30$ repetições
+
 ## Paper
+- [ ] Template SBC baixado e compilado via `pdflatex` + `bibtex` (MiKTeX)
 - [ ] ≤ 10 páginas (PDF compilado)
 - [ ] Template SBC, LaTeX, sem alterar formatação
 - [ ] Cobre índices, plano de execução, otimização
@@ -9,7 +18,7 @@
 - [ ] Resultados antes/depois com tabelas/gráficos
 - [ ] Análise estatística (N, média, desvio, IC)
 - [ ] Planos de execução comentados
-- [ ] SGBD comercial e **não MySQL**
+- [x] SGBD comercial e **não MySQL**
 - [ ] Referências no padrão SBC, todas citadas
 - [ ] Revisão ortográfica
 - [ ] Submetido até **17/11/2026**

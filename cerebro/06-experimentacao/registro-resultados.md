@@ -3,9 +3,9 @@
 Preencher durante os experimentos.
 
 ## Ambiente
-- SGBD/versão:
-- Hardware/SO:
-- Dataset (linhas):
+- **SGBD/versão:** SQL Server 2022 Developer Edition (Docker — registrar saída exata de `SELECT @@VERSION;` após subir o container)
+- **Hardware/SO:** Windows 11 Home Single Language | 12th Gen Intel Core i5-1235U (10 cores / 12 threads) | 15,71 GB RAM | SSD (`KINGSTON SA400S37240G` / `SAMSUNG MZVLQ256HBJD-00B`)
+- **Dataset (linhas):** _a definir e carregar_
 
 ## Resultados
 | Consulta | Config. | Tempo médio (ms) | Desvio | Leituras lógicas | Operador principal | Speedup |

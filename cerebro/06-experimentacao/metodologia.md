@@ -3,11 +3,11 @@
 Objetivo: resultados reprodutíveis e detalhados.
 
 ## Registrar no paper
-- Hardware (CPU, RAM, tipo de disco), SO, **versão exata** do SGBD, configurações (memória, paralelismo).
-- Dataset: origem, linhas por tabela, tamanho em disco, esquema.
+- Hardware (CPU, RAM, tipo de disco), SO, **versão exata** do SGBD (`SELECT @@VERSION;`), configurações (memória do container/SQL Server, paralelismo `MAXDOP`).
+- Dataset: origem, linhas por tabela, tamanho em disco (`sp_spaceused`), esquema.
 - Texto das consultas e DDL dos índices.
-- Cache: cold com `CHECKPOINT; DBCC DROPCLEANBUFFERS;` (SQL Server, só em ambiente de teste); warm repetindo a execução.
-- Métricas: tempo decorrido, CPU, leituras lógicas/físicas, custo estimado, operador principal.
+- Cache: cold com `CHECKPOINT; DBCC DROPCLEANBUFFERS;` (SQL Server, só em ambiente de teste; opcionalmente `DBCC FREEPROCCACHE;` quando quiser testar recompilação); warm repetindo a execução.
+- Métricas: tempo decorrido (`elapsed time`), CPU (`CPU time`), leituras lógicas/físicas (`SET STATISTICS IO, TIME ON`), custo estimado e plano real (`SET STATISTICS XML ON` + plano gráfico no SSMS/VS Code `mssql`).
 
 ## Protocolo
 1. Carregar dados e atualizar estatísticas.

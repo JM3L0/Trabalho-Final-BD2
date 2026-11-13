@@ -2,7 +2,7 @@
 
 ## Template
 - O PDF exige o template SBC em LaTeX, mas não fornece link nem arquivo. Baixe os arquivos (`sbc-template.sty`, `sbc-template.tex`, `sbc.bst`) na página de modelos da SBC (sbc.org.br) e use a versão vigente.
-- Compile com `pdflatex` + `bibtex` (MiKTeX instalado). Idioma: `babel` com `brazil`, e `inputenc` utf8.
+- Compile com `pdflatex` + `bibtex` (MiKTeX já verificado como instalado na máquina). Idioma: `babel` com `brazil`, e `inputenc` utf8.
 - Não altere margens nem fontes. Confira a contagem de páginas do PDF final.
 
 ## Estrutura sugerida
@@ -16,4 +16,4 @@
 | 5. Conclusão | Achados, limitações | 0,5 |
 | Referências | SBC | 0,5 |
 
-Veja a [matriz de rastreabilidade](../01-requisitos/matriz-rastreabilidade.md).
+Confira os requisitos obrigatórios em [requisitos.md](../01-requisitos/requisitos.md) e o [checklist-final.md](../10-checklists/checklist-final.md).

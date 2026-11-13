@@ -14,5 +14,5 @@
 | Q10 | Subconsulta correlacionada | Reescrita com JOIN/EXISTS | — |
 | W1 | INSERT/UPDATE em massa | Custo de manutenção do índice | Overhead |
 
-Cada linha: capturar plano antes/depois, métricas, N execuções.
+Cada linha: capturar plano real/estimado antes e depois (`SET STATISTICS XML ON` + captura gráfica no VS Code `mssql`/SSMS), métricas (`SET STATISTICS IO, TIME ON`) e `N >= 30` execuções (cold/warm).
 
