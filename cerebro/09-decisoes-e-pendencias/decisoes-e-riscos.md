@@ -1,39 +1,35 @@
-# Decisões, pendências e riscos
+# Decisoes Consolidadas, Pendencias e Riscos Mitigados
 
-## Decisões do grupo
-| Decisão | Valor | Sugestão / Observação |
+## 1. Decisoes Consolidadas do Grupo
+| Decisao | Definicao Final | Justificativa / Documento de Referencia |
 |---|---|---|
-| Integrantes | _a definir_ | |
-| SGBD | **SQL Server Developer (Docker)** | Confirmado em 13/11 (ver [comparativo-sgbds.md](../../comparativo-sgbds.md)) |
-| Dataset | _a definir_ | Sintético relacional (~5–8M linhas) pelo prazo curto, ou Stack Overflow |
-| Cliente gráfico (planos) | _a definir_ | Extensão `mssql` no VS Code ou SSMS |
-| Idioma do paper | _a definir_ | Português |
-| Análise estatística / automação | _a definir_ | Python + `uv` (já instalados na máquina) |
-| Repositório de scripts | _a definir_ | Pastas locais (`docker/`, `sql/`, `scripts/`, `paper/`) no repo atual |
+| **SGBD** | **Microsoft SQL Server 2022 Developer Edition (Docker)** | Atende a restricao "comercial, exceto MySQL", sem limitacao de tamanho de dados e com ferramentas ricas de planos ([comparativo-sgbds.md](../../comparativo-sgbds.md)). |
+| **Arquitetura de Dados** | **Duas Bases Gemeas (`Ecommerce_Baseline` e `Ecommerce_Otimizado`)** | Clonadas via `BACKUP` e `RESTORE ... WITH MOVE`. Garante grupo de controle imutavel e elimina comandos DDL durante a apresentacao oral ([plano-de-implementacao.md](../../plano-de-implementacao.md)). |
+| **Dataset** | **E-Commerce B2C Sintetico (~6,25M linhas)** | Tabelas `Clientes` (200k), `Produtos` (50k), `Pedidos` (1,5M) e `ItensPedido` (4,5M). Semente pseudoaleatoria fixa (`seed=42`) para 100% de reprodutibilidade. |
+| **Compatibilidade** | **Multiplataforma (Windows e Ubuntu Linux)** | Docker Compose com volumes POSIX relativos, Python gerenciado por `uv`, driver `pymssql` com FreeTDS embutido, `pathlib.Path` e `.gitattributes`. |
+| **Template do Paper** | **Template Oficial SBC em LaTeX** | Pacote extraido de `SBC_Conferences_Template___updated_sbc_template_sty_v2017__1_.zip`, compilado via script `scripts/compile_paper.py`. |
+| **Idioma do Artigo** | **Portugues** | Conforme padrao usual da SBC e da disciplina. |
+| **Cliente Grafico** | **VS Code (`mssql`), Azure Data Studio ou SSMS** | Extensoes multiplataforma que geram os diagramas de planos de execucao e exportam XML. |
 
-## Pendências a confirmar com o professor
-- Tamanho do grupo (ou trabalho individual).
-- Forma de submissão (e-mail, SIGAA ou outra).
-- Dia da apresentação (18 ou 19/11).
-- As 10 págs incluem referências? (Caber tudo em 10.)
-- Perguntas contam nos 20 min? Penalidade por atraso? Entregar código/dataset?
-- Critérios detalhados de nota (além do resumo em [requisitos.md](../01-requisitos/requisitos.md)).
+---
 
-## Próximos passos imediatos (ordem de execução)
-1. Abrir o **Docker Desktop** no Windows e aguardar o motor iniciar.
-2. Criar `docker-compose.yml` do SQL Server 2022 Developer (`MSSQL_PID=Developer`) e subir o container.
-3. Conectar um cliente gráfico (VS Code `mssql` ou SSMS) para captura dos planos visuais.
-4. Definir e carregar o dataset ($\ge 1$ milhão de linhas) sem índices secundários.
-5. Baixar o template SBC em LaTeX e validar compilação com `pdflatex` (MiKTeX já instalado).
-6. Executar o baseline (`Q1`–`Q10` e `W1`) com coleta automatizada (`N >= 30`) e planos salvos.
+## 2. Pendencias a Confirmar com o Docente
+* Confirmar se as 10 paginas do artigo incluem as referencias bibliograficas (planejamento atual assume que o teto total inclui referencias).
+* Confirmar se o tempo de arguicao da banca esta incluso nos 20 minutos de apresentacao.
+* Canal oficial de envio do PDF final (SIGAA ou e-mail).
 
-## Riscos
-| Risco | Mitigação |
-|---|---|
-| Prazo curto (submissão 17/11 — 4 dias restantes) | Seguir o [cronograma](../03-prazos/cronograma.md) e priorizar dataset sintético |
-| SGBD recusado como "comercial" | Mitigado: **SQL Server Developer** escolhido |
-| Estourar 10 páginas | Compilar cedo; figuras compactas |
-| Instalação/dataset demoram | Docker já instalado; dataset sintético gerado em minutos como plano principal/B |
-| Limite de 10 GB do Express | Mitigado: usar edição **Developer** no container |
-| Daemon do Docker parado no dia da demo | Iniciar antes; ter vídeo/prints de backup |
-| Ganho imperceptível | Dataset $\ge 1$M linhas; consultas seletivas e cold/warm controlados |
+---
+
+## 3. Matriz de Riscos e Mitigacoes Validadas
+
+| Risco Identificado | Probabilidade | Impacto | Estrategia de Mitigacao Adotada |
+|---|---|---|---|
+| Incompatibilidade de SGBD com o enunciado | Baixa | Fatal | **Mitigado:** SQL Server Developer e inequivocamente comercial proprietario. |
+| Estouro do limite maximo de 10 paginas | Alta | Medio | **Mitigado:** Sintese das consultas Q1 a Q10 e W1 em tabela comparativa unificada; limitacao de 3 a 4 figuras de planos graficos no paper. |
+| Travamento ou atraso na demo ao vivo de 20 min | Alta | Alto | **Mitigado:** Uso de duas bases pre-indexadas (`Ecommerce_Baseline` e `Ecommerce_Otimizado`), executando consultas lado a lado sem rodar DDL na apresentacao. |
+| Explosao do arquivo de log (.ldf) na carga massiva | Media | Alto | **Mitigado:** Configuracao de `RECOVERY SIMPLE` e parametrizacao de `BATCHSIZE = 100000` no `BULK INSERT`. |
+| Falha de permissao no Ubuntu (UID 10001 do container) | Media | Alto | **Mitigado:** Comando de setup `chmod -R 777 ./data` (leitura dos CSVs e escrita do backup `.bak`) e arquivos com permissao `0644`. |
+| Quebra de scripts no Linux por terminadores CRLF | Media | Medio | **Mitigado:** Configuracao de `.gitattributes` com `eol=lf` para scripts shell e Python. |
+| Variancia estatistica de CPU nos testes | Media | Baixo | **Mitigado:** Fixacao de `OPTION (MAXDOP 1)` e uso de Leituras Logicas como metrica deterministica primaria. |
+| Inflacao de cardinalidade no teste de escrita W1 | Media | Medio | **Mitigado:** Execucao das 30 repeticoes sob transacao revertida (`BEGIN TRAN ... ROLLBACK TRAN`). |
+| Falha de ambiente no dia da apresentacao | Baixa | Fatal | **Mitigado:** Gravacao prévia de video em alta definicao da demonstracao como plano de contingencia. |

@@ -1,25 +1,47 @@
-# Metodologia e análise estatística
+# Metodologia Experimental e Analise Estatistica
 
-Objetivo: resultados reprodutíveis e detalhados.
+Objetivo: Garantir resultados reproduziveis, estatisticamente confiaveis e metodologicamente rigorosos.
 
-## Registrar no paper
-- Hardware (CPU, RAM, tipo de disco), SO, **versão exata** do SGBD (`SELECT @@VERSION;`), configurações (memória do container/SQL Server, paralelismo `MAXDOP`).
-- Dataset: origem, linhas por tabela, tamanho em disco (`sp_spaceused`), esquema.
-- Texto das consultas e DDL dos índices.
-- Cache: cold com `CHECKPOINT; DBCC DROPCLEANBUFFERS;` (SQL Server, só em ambiente de teste; opcionalmente `DBCC FREEPROCCACHE;` quando quiser testar recompilação); warm repetindo a execução.
-- Métricas: tempo decorrido (`elapsed time`), CPU (`CPU time`), leituras lógicas/físicas (`SET STATISTICS IO, TIME ON`), custo estimado e plano real (`SET STATISTICS XML ON` + plano gráfico no SSMS/VS Code `mssql`).
+## 1. Variaveis e Registros Obrigatorios no Artigo
+* **Ambiente de Execucao:** Hardware (CPU, RAM, SSD), sistema operacional (Windows/Ubuntu), versao exata do SGBD (`SELECT @@VERSION;`) e limites de recursos do container Docker.
+* **Dataset:** Volume exato por tabela, semente pseudoaleatoria (`seed=42`), tamanho ocupado em disco (`sp_spaceused`) e esquema relacional E-Commerce B2C.
+* **Estrategia Experimental:** Utilizacao de duas bases de dados identicas no mesmo servidor (`Ecommerce_Baseline` e `Ecommerce_Otimizado`), isolando o grupo de controle do grupo experimental.
+* **Paralelismo Padronizado:** Fixacao do grau de paralelismo (`OPTION (MAXDOP 1)`) em todas as consultas para eliminar dispersao e variancia induzida por scheduling de threads da CPU.
+* **Metrica Primaria Deterministica:** **Leituras Logicas (`logical reads`)** via `SET STATISTICS IO ON`, medindo com precisao de pagina (8 KB) o I/O no buffer pool, independente de flutuacoes termicas ou de carga na CPU do host. Metricas secundarias: tempo total decorrido (*elapsed time*) e tempo de CPU (*CPU time*).
 
-## Protocolo
-1. Carregar dados e atualizar estatísticas.
-2. **Baseline** sem índices secundários: capturar plano e métricas.
-3. Aplicar **uma** otimização por vez (índice simples, composto, covering, reescrita).
-4. Capturar plano e métricas, repetindo N vezes.
-5. Medir o custo de escrita (INSERT/UPDATE) com os índices.
-6. Comparar e explicar pelo plano.
+---
 
-## Estatística
-- N ≥ 30 repetições por cenário (descartar a primeira se warm). É sugestão, não exigência.
-- Reportar média, mediana, desvio padrão, mín/máx e IC 95%.
-- Speedup = t_antes / t_depois; redução % de leituras lógicas.
-- Comparação: teste t pareado ou Wilcoxon (se não normal), com p-valor.
-- Boxplot ou barras com erro, e tabela antes/depois. Script Python/R versionado.
+## 2. Protocolo Experimental Automatizado
+
+1. **Carga Inicial e Criacao do Clone:**
+   * Carga dos dados sinteticos em `Ecommerce_Baseline` (apenas com chaves primarias).
+   * Geracao do backup `ecommerce_init.bak` e restauracao com `WITH MOVE` para criar `Ecommerce_Otimizado`.
+   * Atualizacao de estatisticas completas em ambas as bases (`sp_updatestats`).
+2. **Aplicacao de Indices na Base Otimizada:**
+   * Criacao de indices secundarios especificos (simples, compostos, covering com `INCLUDE` e filtrados) exclusivamente na base `Ecommerce_Otimizado`.
+3. **Execucao do Benchmark Automatizado via Script Python (`scripts/run_benchmarks.py`):**
+   * Alternancia de contexto via sessao (`USE Ecommerce_Baseline;` e `USE Ecommerce_Otimizado;`).
+   * **Controle de Cache:**
+     * *Cold Cache:* Procedimento de sanitizacao antes da medicao com `CHECKPOINT; DBCC DROPCLEANBUFFERS; DBCC FREEPROCCACHE;`.
+     * *Warm Cache:* Bateria de execucoes repetidas sequenciais, descartando a execucao inicial de aquecimento.
+   * **Tratamento Especial para W1 (Operacoes DML de Escrita):**
+     * Para que a tabela nao infle e distorca o tempo de insercao ao longo das 30 repeticoes, cada rodada de medicao de W1 sera executada dentro de uma transacao desfeita:
+       `BEGIN TRANSACTION; ... medicao DML ...; ROLLBACK TRANSACTION;`.
+4. **Captura dos Planos de Execucao:**
+   * Extracao automatica do plano real em XML (`SET STATISTICS XML ON`) e captura grafica dos operadores no cliente SQL (VS Code / SSMS / Azure Data Studio).
+
+---
+
+## 3. Analise Estatistica
+
+* **Amostragem:** $N \ge 30$ repeticoes validas por cenario para assegurar convergencia assintotica (Teorema Central do Limite).
+* **Medidas Descritivas:** Media, mediana, desvio padrao, minimo, maximo e intervalo de confianca de 95% ($IC_{95\%} = \bar{x} \pm 1,96 \cdot \frac{s}{\sqrt{N}}$).
+* **Speedup e Reducao de I/O:**
+  * $Speedup = \frac{Tempo_{Baseline}}{Tempo_{Otimizado}}$
+  * $Reducao_{I/O} = \frac{Leituras_{Baseline} - Leituras_{Otimizado}}{Leituras_{Baseline}} \times 100\%$
+* **Testes de Significancia Estatistica:**
+  * Teste de normalidade de Shapiro-Wilk para os tempos de execucao.
+  * Para distribuicoes com normalidade: **Teste t de Student pareado** (*paired t-test*).
+  * Para distribuicoes assimetricas: **Teste dos postos com sinais de Wilcoxon** (*Wilcoxon signed-rank test*).
+  * Reportar formalmente o valor de $p$ (ex.: $p < 0,001$).
+* **Apresentacao dos Dados:** Tabela sintetica unificada no artigo em LaTeX e boxplots gerados via `scripts/generate_charts.py`.

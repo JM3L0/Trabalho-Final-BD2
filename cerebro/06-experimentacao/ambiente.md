@@ -1,37 +1,51 @@
-# Ambiente: SGBD, Infraestrutura Local e Dataset
+# Ambiente: SGBD, Infraestrutura Multiplataforma e Dataset
 
-## SGBD Definido (restrição do PDF: comercial, não MySQL)
-- **Escolha:** **Microsoft SQL Server 2022 Developer Edition** em container Docker (`mcr.microsoft.com/mssql/server:2022-latest`, `MSSQL_PID=Developer`).
-- **Justificativa:** Ver [comparativo-sgbds.md](../../comparativo-sgbds.md). É inequivocamente comercial, gratuito para uso não produtivo, sem limite de 10 GB por banco (ao contrário do Express), possui plano gráfico no SSMS/VS Code (`mssql`) e métricas exatas via `SET STATISTICS IO, TIME ON` e `SET STATISTICS XML ON`.
-- **Registro da decisão:** [decisoes-e-riscos.md](../09-decisoes-e-pendencias/decisoes-e-riscos.md).
+## 1. SGBD Definido (Restricao do PDF: comercial, exceto MySQL)
+* **Escolha:** **Microsoft SQL Server 2022 Developer Edition** em container Docker (`mcr.microsoft.com/mssql/server:2022-latest`, `MSSQL_PID=Developer`).
+* **Justificativa:** Conforme [comparativo-sgbds.md](../../comparativo-sgbds.md), e formalmente comercial, gratuito para estudo e desenvolvimento, sem limitacao de tamanho de dados (ao contrario do Express), com suporte nativo a planos graficos e metricas exatas (`SET STATISTICS IO, TIME ON` e `SET STATISTICS XML ON`).
+* **Estrategia de Duas Bases na Mesma Instancia:**
+  * `Ecommerce_Baseline`: Base com dados carregados e apenas chaves primarias (ou tabelas heap/clustered basicas), sem indices secundarios, servindo de grupo de controle cientifico permanente.
+  * `Ecommerce_Otimizado`: Base clonada da baseline via `BACKUP DATABASE` e `RESTORE DATABASE ... WITH MOVE`, recebendo todos os indices secundarios, indices com `INCLUDE`, indices filtrados e consultas otimizadas.
+  * **Vantagem de Execucao:** Permite abrir duas abas no cliente SQL (uma em cada base) e comparar o plano de execucao e o tempo lado a lado na apresentacao de 20 min sem necessidade de criar ou remover indices ao vivo.
 
-## Máquina de Experimentos (verificada em 13/11/2026)
-- **SO:** Microsoft Windows 11 Home Single Language
-- **CPU:** 12th Gen Intel(R) Core(TM) i5-1235U (10 núcleos / 12 threads)
-- **RAM:** 15,71 GB (~16 GB)
-- **Armazenamento:** SSD (`KINGSTON SA400S37240G` 224 GB e `SAMSUNG MZVLQ256HBJD-00B` 238 GB)
-- **Ferramentas instaladas no host:**
-  - **Docker Desktop:** instalado (`docker.exe` disponível; **necessário iniciar o Docker Desktop** para ativar o daemon Linux).
-  - **Python + `uv`:** instalados (para geração/carga de dados, automação das repetições e análise estatística).
-  - **MiKTeX (`pdflatex`):** instalado (para compilar o paper em LaTeX).
-  - **`sqlcmd`:** não instalado no host Windows; usar `/opt/mssql-tools18/bin/sqlcmd` dentro do container ou driver Python.
+---
 
-## Primeiros Passos do Setup
-1. Abrir o **Docker Desktop** no Windows e aguardar o motor iniciar.
-2. Criar `docker-compose.yml` com `mcr.microsoft.com/mssql/server:2022-latest`, `ACCEPT_EULA=Y`, `MSSQL_PID=Developer`, memória alocada compatível com os 15,71 GB do host e volume persistente para `/var/opt/mssql`.
-3. Subir o container (`docker compose up -d`) e confirmar versão exata com `SELECT @@VERSION;`.
-4. Configurar cliente gráfico para capturar planos de execução visuais: extensão **`SQL Server (mssql)`** no VS Code (mais leve) ou **SSMS** (SQL Server Management Studio).
+## 2. Compatibilidade Multiplataforma (Windows e Ubuntu)
 
-## Dataset (decisão pendente)
-Critérios: ≥ 1 milhão de linhas (ideal 5–10 M), várias tabelas relacionadas, colunas variadas, licença aberta, cabe em disco e na RAM disponível.
+O ambiente e os scripts foram projetados para serem executados com paridade total tanto no **Microsoft Windows** (10/11 via Docker Desktop) quanto no **Ubuntu Linux** (20.04/22.04/24.04 nativo via Docker Engine):
 
-| Opção | Observação |
-|---|---|
-| **Dados sintéticos por script (Recomendado pelo prazo)** | Ex.: esquema relacional de e-commerce (`Clientes`, `Produtos`, `Pedidos` ~2M linhas, `ItensPedido` ~6M linhas) carregado via `bcp`/`BULK INSERT`. Controle total de seletividade/cardinalidade e 100% reprodutível |
-| Stack Overflow data dump | Grande e relacional (dump público; conferir licença e tempo de download/carga) |
-| NYC TLC Trip Records | Muitos milhões de linhas, tabela única (menos rico para `JOIN`) |
-| Dados abertos BR (CNPJ da Receita, microdados do ENEM/INEP) | Grandes e relevantes localmente, porém exigem ETL mais demorado |
-| AdventureWorks / WideWorldImporters / ContosoRetailDW | Exemplos da Microsoft, pequenos (precisam ser ampliados) |
-| Olist (Kaggle) | Relacional, apenas ~100 mil pedidos: pequeno demais |
+* **Docker Multiplataforma:**
+  * No Windows: Executado via Docker Desktop (backend WSL2).
+  * No Ubuntu: Executado via Docker Engine ou Docker Desktop para Linux.
+  * O arquivo `docker-compose.yml` utiliza mapeamento relativo POSIX (`./data:/var/opt/mssql/data_import`) compativel com ambos os sistemas operacionais.
+  * No Ubuntu, permissao de leitura e escrita garantida para o usuario nao-root do SQL Server (`uid 10001`): `mkdir -p ./data && chmod -R 777 ./data` (necessario tanto para leitura dos CSVs quanto para escrita do arquivo de backup `.bak`).
+* **Orquestracao em Python via `uv`:**
+  * Uso de `uv run` como executor padronizado, dispensando configuracao manual de ambientes virtuais em ambos os sistemas.
+  * Manipulacao de arquivos usando exclusivamente `pathlib.Path` para evitar conflito de separadores de caminho (`\` vs `/`).
+  * Utilizacao da biblioteca `pymssql` (com FreeTDS pre-compilado em suas wheels), eliminando a necessidade de instalacao manual de pacotes de desenvolvimento C (`unixodbc-dev`) no Ubuntu ou drivers `.msi` no Windows.
+  * Padronizacao rigorosa de nomes de arquivos em letras minusculas (`snake_case`) para evitar problemas com *case-sensitivity* no Linux ext4.
+* **Scripts de Suporte e Git:**
+  * Configuracao de `.gitattributes` para forcar terminadores de linha `LF` (`*.sh text eol=lf`, `*.py text eol=lf`).
+  * `run_all.sh` (com invocacao recomendada `bash run_all.sh`) para Ubuntu/Linux.
+  * `run_all.ps1` (com `powershell -ExecutionPolicy Bypass -File .\run_all.ps1`) para Windows PowerShell.
+  * Comandos diretos em Python (`uv run python scripts/...`) agnosticos de sistema operacional.
+* **Compilacao de LaTeX:**
+  * No Windows: Suportado via MiKTeX ou TeX Live (`pdflatex`).
+  * No Ubuntu: Suportado via pacote TeX Live (`sudo apt install texlive-latex-base texlive-latex-extra texlive-fonts-recommended texlive-lang-portuguese`).
+  * Script centralizador `scripts/compile_paper.py` compativel com ambos os ecossistemas.
 
-Documentar ao escolher: fonte (URL) ou script gerador, licença, linhas por tabela, tamanho em disco, esquema DDL e forma de carga.
+---
+
+## 3. Dataset Definido: E-Commerce B2C Sintetico (~6,25 Milhoes de Registros)
+
+* **Origem:** Geracao sintetica via script Python reprodutivel com semente fixa (`seed=42`).
+* **Tamanho total:** ~6.250.000 tuplas relacionais distribuidas em 4 tabelas:
+  1. `Clientes` (~200.000 registros): `ClienteID` (PK), `Nome`, `Email`, `Cidade`, `Estado`, `DataCadastro`.
+  2. `Produtos` (~50.000 registros): `ProdutoID` (PK), `Nome`, `Categoria`, `Preco`, `Estoque`.
+  3. `Pedidos` (~1.500.000 registros): `PedidoID` (PK), `ClienteID` (FK), `DataPedido`, `Status`, `ValorTotal`.
+  4. `ItensPedido` (~4.500.000 registros): `ItemPedidoID` (PK), `PedidoID` (FK), `ProdutoID` (FK), `Quantidade`, `PrecoUnitario`, `Desconto`.
+* **Volume em disco estimado:** ~1,5 GB a 2,2 GB (somando ambas as bases `Ecommerce_Baseline`, `Ecommerce_Otimizado` e o arquivo `.bak` compactado).
+* **Diretrizes de Carga Massiva Otimizada:**
+  * Mapeamento de volume Docker: `./data:/var/opt/mssql/data_import`.
+  * Modelo de recuperacao: `ALTER DATABASE [Ecommerce_Baseline] SET RECOVERY SIMPLE;` para evitar crescimento excessivo do arquivo de log (`.ldf`).
+  * Carga via `BULK INSERT` com `BATCHSIZE = 100000`, `DATAFILETYPE = 'char'`, `CODEPAGE = '65001'` e `ROWTERMINATOR = '0x0a'`.
