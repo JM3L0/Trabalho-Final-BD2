@@ -4,7 +4,7 @@
 | Decisão | Valor | Sugestão |
 |---|---|---|
 | Integrantes | _a definir_ | |
-| SGBD | _a definir_ | SQL Server Developer |
+| SGBD | **SQL Server Developer** | SQL Server Developer |
 | Dataset | _a definir_ | Sintético ou Stack Overflow |
 | Idioma do paper | _a definir_ | Português |
 | Análise estatística | _a definir_ | Python/R |
