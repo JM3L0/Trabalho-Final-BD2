@@ -25,10 +25,10 @@
 ---
 
 ## 3. Diretrizes Essenciais para Garantir o Limite de 10 Paginas
-1. **Tabela Comparativa Unificada:** Em vez de 11 subsecoes com tabelas individuais, apresentar uma unica tabela abrangente reunindo Leituras Logicas (Antes/Depois), Reducao %, Tempo de Execucao (Antes/Depois), Speedup e significancia estatistica ($p < 0,001$).
+1. **Tabela Comparativa Unificada:** Em vez de 11 subsecoes com tabelas individuais, apresentar uma unica tabela abrangente reunindo Leituras Logicas (Antes/Depois), Reducao % (ou Overhead % para `W1`), Tempo de Execucao (Antes/Depois), Speedup (com valor `< 1,0` em `W1`) e significancia estatistica ($p < 0,001$).
 2. **Selecao Visual de Planos:** Diagramar no maximo 3 a 4 figuras de arvore de operadores para os casos de maior impacto didatico:
    * Q1: *Clustered Index Scan* vs *Index Seek*;
    * Q3: Indice composto e a importancia da ordem dos predicados;
-   * Q4: Eliminacao completa de *Key Lookup* via *Covering Index* com `INCLUDE`;
+   * Q4: Eliminacao completa de *Key Lookup* comparando Baseline (*Clustered Index Scan*), indice simples (*Index Seek* + *Key Lookup*) e *Covering Index* com `INCLUDE`;
    * W1: Custo colateral de DML na manutencao de multiplas arvores B+ tree.
 3. **Monitoramento Continuo:** Executar `scripts/compile_paper.py` regularmente durante a escrita para atestar ausencia de *Overfull \hbox* e conferir a contagem total de paginas no PDF resultante.

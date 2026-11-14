@@ -22,13 +22,11 @@ O ambiente e os scripts foram projetados para serem executados com paridade tota
 * **Orquestracao em Python via `uv`:**
   * Uso de `uv run` como executor padronizado, dispensando configuracao manual de ambientes virtuais em ambos os sistemas.
   * Manipulacao de arquivos usando exclusivamente `pathlib.Path` para evitar conflito de separadores de caminho (`\` vs `/`).
-  * Utilizacao da biblioteca `pymssql` (com FreeTDS pre-compilado em suas wheels), eliminando a necessidade de instalacao manual de pacotes de desenvolvimento C (`unixodbc-dev`) no Ubuntu ou drivers `.msi` no Windows.
+  * Utilizacao da biblioteca `pymssql` (com FreeTDS pre-compilado em suas wheels), eliminando a necessidade de instalacao manual de pacotes de desenvolvimento C (`unixodbc-dev`) no Ubuntu ou drivers `.msi` no Windows. Validar em *smoke test* inicial a captura das mensagens de `SET STATISTICS IO, TIME ON` via `pymssql` (mantendo `pyodbc` como fallback se necessario).
   * Padronizacao rigorosa de nomes de arquivos em letras minusculas (`snake_case`) para evitar problemas com *case-sensitivity* no Linux ext4.
 * **Scripts de Suporte e Git:**
   * Configuracao de `.gitattributes` para forcar terminadores de linha `LF` (`*.sh text eol=lf`, `*.py text eol=lf`).
-  * `run_all.sh` (com invocacao recomendada `bash run_all.sh`) para Ubuntu/Linux.
-  * `run_all.ps1` (com `powershell -ExecutionPolicy Bypass -File .\run_all.ps1`) para Windows PowerShell.
-  * Comandos diretos em Python (`uv run python scripts/...`) agnosticos de sistema operacional.
+  * Priorizar comandos diretos agnosticos em Python (`uv run python scripts/...`), mantendo wrappers enxutos (`run_all.sh` / `run_all.ps1`) apenas se nao duplicarem esforco antes do artigo.
 * **Compilacao de LaTeX:**
   * No Windows: Suportado via MiKTeX ou TeX Live (`pdflatex`).
   * No Ubuntu: Suportado via pacote TeX Live (`sudo apt install texlive-latex-base texlive-latex-extra texlive-fonts-recommended texlive-lang-portuguese`).
@@ -38,13 +36,13 @@ O ambiente e os scripts foram projetados para serem executados com paridade tota
 
 ## 3. Dataset Definido: E-Commerce B2C Sintetico (~6,25 Milhoes de Registros)
 
-* **Origem:** Geracao sintetica via script Python reprodutivel com semente fixa (`seed=42`).
+* **Origem:** Geracao sintetica vetorizada em lotes com `numpy` (evitando loops lentos com `Faker`) via script Python reprodutivel com semente fixa (`seed=42`).
 * **Tamanho total:** ~6.250.000 tuplas relacionais distribuidas em 4 tabelas:
   1. `Clientes` (~200.000 registros): `ClienteID` (PK), `Nome`, `Email`, `Cidade`, `Estado`, `DataCadastro`.
   2. `Produtos` (~50.000 registros): `ProdutoID` (PK), `Nome`, `Categoria`, `Preco`, `Estoque`.
   3. `Pedidos` (~1.500.000 registros): `PedidoID` (PK), `ClienteID` (FK), `DataPedido`, `Status`, `ValorTotal`.
   4. `ItensPedido` (~4.500.000 registros): `ItemPedidoID` (PK), `PedidoID` (FK), `ProdutoID` (FK), `Quantidade`, `PrecoUnitario`, `Desconto`.
-* **Volume em disco estimado:** ~1,5 GB a 2,2 GB (somando ambas as bases `Ecommerce_Baseline`, `Ecommerce_Otimizado` e o arquivo `.bak` compactado).
+* **Volume em disco estimado:** ~1,5 GB a 2,2 GB (somando ambas as bases `Ecommerce_Baseline`, `Ecommerce_Otimizado` e o arquivo `.bak` compactado). Apos validar ambas as bases e o backup `ecommerce_init.bak`, os CSVs temporarios em `./data` podem ser removidos para liberar disco.
 * **Diretrizes de Carga Massiva Otimizada:**
   * Mapeamento de volume Docker: `./data:/var/opt/mssql/data_import`.
   * Modelo de recuperacao: `ALTER DATABASE [Ecommerce_Baseline] SET RECOVERY SIMPLE;` para evitar crescimento excessivo do arquivo de log (`.ldf`).

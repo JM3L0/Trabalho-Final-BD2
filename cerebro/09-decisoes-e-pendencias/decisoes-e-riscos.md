@@ -31,5 +31,8 @@
 | Falha de permissao no Ubuntu (UID 10001 do container) | Media | Alto | **Mitigado:** Comando de setup `chmod -R 777 ./data` (leitura dos CSVs e escrita do backup `.bak`) e arquivos com permissao `0644`. |
 | Quebra de scripts no Linux por terminadores CRLF | Media | Medio | **Mitigado:** Configuracao de `.gitattributes` com `eol=lf` para scripts shell e Python. |
 | Variancia estatistica de CPU nos testes | Media | Baixo | **Mitigado:** Fixacao de `OPTION (MAXDOP 1)` e uso de Leituras Logicas como metrica deterministica primaria. |
-| Inflacao de cardinalidade no teste de escrita W1 | Media | Medio | **Mitigado:** Execucao das 30 repeticoes sob transacao revertida (`BEGIN TRAN ... ROLLBACK TRAN`). |
+| Inflacao de cardinalidade no teste de escrita W1 | Media | Medio | **Mitigado:** Execucao das 30 repeticoes sob transacao revertida (`BEGIN TRAN ... ROLLBACK TRAN`), capturando `STATISTICS IO, TIME` apenas do `INSERT` antes do `ROLLBACK`. |
+| Plano real divergir do esperado (ex.: Q7 dar Hash ou Q10 igualar planos) | Media | Medio | **Mitigado:** Validacao previa (`1x` com `SET STATISTICS XML ON`) em ambas as bases antes da bateria $N \ge 30$; uso de *Covering Index* em Q7 e validacao de nulabilidade/correlacao em Q10. |
+| Lentidao na geracao dos CSVs ou na bateria Cold Cache | Media | Medio | **Mitigado:** Geracao vetorizada com `numpy`; bateria principal $N \ge 30$ em *Warm Cache* + *Cold Cache* calibrado; separacao entre captura XML (1x) e loop estatistico. |
+| Atraso na redacao do paper (70% da nota) ate 17/11 | Media | Alto | **Mitigado:** Extracao do template SBC e inicio da redacao (Introducao e Teoria) ja no sabado (14/11) em paralelo com os experimentos. |
 | Falha de ambiente no dia da apresentacao | Baixa | Fatal | **Mitigado:** Gravacao prévia de video em alta definicao da demonstracao como plano de contingencia. |
