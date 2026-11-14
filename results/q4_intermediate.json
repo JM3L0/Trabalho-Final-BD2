@@ -9,7 +9,7 @@
     "logical_reads": 1296,
     "physical_reads": 0,
     "read_ahead_reads": 0,
-    "cpu_time_ms": 1,
+    "cpu_time_ms": 0,
     "elapsed_time_ms": 1,
     "row_count": 422,
     "table_io": {

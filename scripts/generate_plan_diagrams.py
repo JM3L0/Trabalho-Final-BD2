@@ -20,19 +20,77 @@ from scripts.db import PAPER_DIR, RESULTS_DIR
 NS = {"sp": "http://schemas.microsoft.com/sqlserver/2004/07/showplan"}
 
 
-def parse_plan_summary(xml_path: Path) -> dict[str, str]:
-    """Extrai custo total e modos de execucao reais de um arquivo .sqlplan."""
+def format_int_br(value: float | int) -> str:
+    """Formata inteiro com separador de milhar brasileiro."""
+    return f"{int(round(value)):,}".replace(",", ".")
+
+
+def format_ms_br(value: float) -> str:
+    """Formata tempo mediano respeitando resolucao minima de 1 ms do SQL Server."""
+    if value <= 0.0:
+        return "< 1 ms"
+    return f"{value:.1f} ms".replace(".", ",")
+
+
+def _find_own_index(node: ET.Element) -> str:
+    """Retorna o nome do indice associado diretamente a um RelOp (sem cruzar filhos RelOp)."""
+    relop_tag = f"{{{NS['sp']}}}RelOp"
+    obj_tag = f"{{{NS['sp']}}}Object"
+    for child in node:
+        if child.tag == relop_tag:
+            continue
+        if child.tag == obj_tag:
+            return child.attrib.get("Index", "").strip("[]")
+        nested = _find_own_index(child)
+        if nested:
+            return nested
+    return ""
+
+
+_ROW_COUNT_OPS = {
+    "Index Seek",
+    "Clustered Index Seek",
+    "Index Scan",
+    "Clustered Index Scan",
+    "Clustered Index Insert",
+    "Index Insert",
+}
+
+
+def parse_plan_summary(xml_path: Path, target_physical_op: str | None = None) -> dict[str, object]:
+    """Extrai custo total, modo de execucao real e linhas por indice de um .sqlplan."""
     root = ET.parse(xml_path).getroot()
     first_relop = root.find(".//sp:RelOp", NS)
     cost = first_relop.attrib.get("EstimatedTotalSubtreeCost", "?") if first_relop is not None else "?"
+
     mode = "?"
-    if first_relop is not None:
-        mode = (
-            first_relop.attrib.get("ActualExecutionMode")
-            or first_relop.attrib.get("EstimatedExecutionMode")
-            or "?"
-        )
-    return {"cost": f"{float(cost):.3f}" if cost != "?" else "?", "mode": mode}
+    rows_by_index: dict[str, int] = {}
+    for relop in root.findall(".//sp:RelOp", NS):
+        phys = relop.attrib.get("PhysicalOp", "")
+        rts = relop.findall("./sp:RunTimeInformation/sp:RunTimeCountersPerThread", NS)
+        idx_name = _find_own_index(relop)
+        act_rows = sum(int(rt.attrib.get("ActualRows", 0)) for rt in rts) if rts else None
+        if idx_name and act_rows is not None and phys in _ROW_COUNT_OPS:
+            rows_by_index.setdefault(idx_name, act_rows)
+
+        if target_physical_op and phys == target_physical_op and mode == "?":
+            if rts and rts[0].attrib.get("ActualExecutionMode"):
+                mode = rts[0].attrib["ActualExecutionMode"]
+            elif relop.attrib.get("EstimatedExecutionMode"):
+                mode = relop.attrib["EstimatedExecutionMode"]
+
+    if mode == "?" and first_relop is not None:
+        rts = first_relop.findall("./sp:RunTimeInformation/sp:RunTimeCountersPerThread", NS)
+        if rts and rts[0].attrib.get("ActualExecutionMode"):
+            mode = rts[0].attrib["ActualExecutionMode"]
+        else:
+            mode = first_relop.attrib.get("EstimatedExecutionMode", "?")
+
+    return {
+        "cost": f"{float(cost):.3f}" if cost != "?" else "?",
+        "mode": mode,
+        "rows_by_index": rows_by_index,
+    }
 
 
 def draw_node(
@@ -80,12 +138,43 @@ def generate_plan_figure() -> list[Path]:
 
     p_q1_b = parse_plan_summary(RESULTS_DIR / "plans/baseline/q1_baseline.sqlplan")
     p_q1_o = parse_plan_summary(RESULTS_DIR / "plans/optimized/q1_optimized.sqlplan")
-    p_q4_b = parse_plan_summary(RESULTS_DIR / "plans/baseline/q4_baseline.sqlplan")
     p_q4_i = parse_plan_summary(RESULTS_DIR / "plans/optimized/q4_intermediate_lookup.sqlplan")
     p_q4_o = parse_plan_summary(RESULTS_DIR / "plans/optimized/q4_optimized.sqlplan")
-    p_q7_b = parse_plan_summary(RESULTS_DIR / "plans/baseline/q7_baseline.sqlplan")
-    p_q7_o = parse_plan_summary(RESULTS_DIR / "plans/optimized/q7_optimized.sqlplan")
+    p_q7_b = parse_plan_summary(
+        RESULTS_DIR / "plans/baseline/q7_baseline.sqlplan", target_physical_op="Hash Match"
+    )
+    p_q7_o = parse_plan_summary(
+        RESULTS_DIR / "plans/optimized/q7_optimized.sqlplan", target_physical_op="Stream Aggregate"
+    )
     p_w1_o = parse_plan_summary(RESULTS_DIR / "plans/optimized/w1_optimized.sqlplan")
+
+    q1_b_reads = format_int_br(warm["Q1"]["baseline"]["logical_reads"]["median"])
+    q1_b_ms = format_ms_br(float(warm["Q1"]["baseline"]["elapsed_time_ms"]["median"]))
+    q1_o_reads = format_int_br(warm["Q1"]["optimized"]["logical_reads"]["median"])
+    q1_o_ms = format_ms_br(float(warm["Q1"]["optimized"]["elapsed_time_ms"]["median"]))
+    q1_o_rows = p_q1_o["rows_by_index"].get("IX_Clientes_Email", warm["Q1"]["row_count"])
+    q1_o_lookups = p_q1_o["rows_by_index"].get("PK_Clientes", q1_o_rows)
+
+    q4_b_reads = format_int_br(warm["Q4"]["baseline"]["logical_reads"]["median"])
+    q4_i_reads = format_int_br(q4_inter["metrics"]["logical_reads"])
+    q4_i_rows = p_q4_i["rows_by_index"].get("IX_Pedidos_ClienteID", q4_inter["metrics"]["row_count"])
+    q4_i_lookups = p_q4_i["rows_by_index"].get("PK_Pedidos", q4_i_rows)
+    q4_o_reads = format_int_br(warm["Q4"]["optimized"]["logical_reads"]["median"])
+    q4_o_ms = format_ms_br(float(warm["Q4"]["optimized"]["elapsed_time_ms"]["median"]))
+
+    q7_b_reads = format_int_br(warm["Q7"]["baseline"]["logical_reads"]["median"])
+    q7_b_ms = format_ms_br(float(warm["Q7"]["baseline"]["elapsed_time_ms"]["median"]))
+    q7_o_reads = format_int_br(warm["Q7"]["optimized"]["logical_reads"]["median"])
+    q7_o_ms = format_ms_br(float(warm["Q7"]["optimized"]["elapsed_time_ms"]["median"]))
+
+    w1_b_reads = format_int_br(warm["W1"]["baseline"]["logical_reads"]["median"])
+    w1_o_reads = format_int_br(warm["W1"]["optimized"]["logical_reads"]["median"])
+    w1_rows_by_idx = p_w1_o["rows_by_index"]
+    w1_total_rows = warm["W1"]["row_count"]
+    w1_pk_rows = format_int_br(w1_rows_by_idx.get("PK_ItensPedido", w1_total_rows))
+    w1_ped_rows = format_int_br(w1_rows_by_idx.get("IX_ItensPedido_PedidoID", w1_total_rows))
+    w1_prod_rows = format_int_br(w1_rows_by_idx.get("IX_ItensPedido_ProdutoID", w1_total_rows))
+    w1_filt_rows = format_int_br(w1_rows_by_idx.get("IX_ItensPedido_Desconto_Alto", 0))
 
     fig, axes = plt.subplots(2, 2, figsize=(12.2, 7.4))
     for ax in axes.flat:
@@ -97,12 +186,14 @@ def generate_plan_figure() -> list[Path]:
     ax = axes[0, 0]
     ax.set_title("(a) Q1: Scan Completo vs. Seek + Key Lookup", fontsize=10, fontweight="bold", pad=6)
     ax.text(0.22, 0.93, f"Baseline (Custo Est. {p_q1_b['cost']})", ha="center", fontsize=8.2, fontweight="bold", color="#1E3A8A")
-    draw_node(ax, 0.22, 0.50, 0.38, 0.22, "Clustered Index Scan", "PK_Clientes | 2.856 pág. | 15,0 ms", "#DBEAFE", "#1D4ED8")
+    draw_node(ax, 0.22, 0.50, 0.38, 0.22, "Clustered Index Scan", f"PK_Clientes | {q1_b_reads} pág. | {q1_b_ms}", "#DBEAFE", "#1D4ED8")
 
     ax.text(0.75, 0.93, f"Otimizado (Custo Est. {p_q1_o['cost']})", ha="center", fontsize=8.2, fontweight="bold", color="#166534")
-    draw_node(ax, 0.75, 0.72, 0.42, 0.17, "Nested Loops (Inner Join)", "6 páginas lógicas | < 1 ms", "#DCFCE7", "#15803D")
-    draw_node(ax, 0.62, 0.28, 0.20, 0.19, "Index Seek", "IX_Clientes_Email\n(1 linha)", "#DCFCE7", "#15803D", fontsize=7.0)
-    draw_node(ax, 0.88, 0.28, 0.20, 0.19, "Key Lookup", "PK_Clientes\n(1 lookup)", "#FEF3C7", "#B45309", fontsize=7.0)
+    draw_node(ax, 0.75, 0.72, 0.42, 0.17, "Nested Loops (Inner Join)", f"{q1_o_reads} páginas lógicas | {q1_o_ms}", "#DCFCE7", "#15803D")
+    row_lbl = "linha" if q1_o_rows == 1 else "linhas"
+    lkp_lbl = "lookup" if q1_o_lookups == 1 else "lookups"
+    draw_node(ax, 0.62, 0.28, 0.20, 0.19, "Index Seek", f"IX_Clientes_Email\n({format_int_br(q1_o_rows)} {row_lbl})", "#DCFCE7", "#15803D", fontsize=7.0)
+    draw_node(ax, 0.88, 0.28, 0.20, 0.19, "Key Lookup", f"PK_Clientes\n({format_int_br(q1_o_lookups)} {lkp_lbl})", "#FEF3C7", "#B45309", fontsize=7.0)
     draw_arrow(ax, 0.62, 0.40, 0.71, 0.61)
     draw_arrow(ax, 0.88, 0.40, 0.79, 0.61)
     ax.axvline(0.47, ymin=0.06, ymax=0.95, color="#CBD5E1", linestyle="--", lw=1)
@@ -118,12 +209,12 @@ def generate_plan_figure() -> list[Path]:
         0.42,
         0.17,
         "Nested Loops (Inner Join)",
-        f"{int(q4_inter['metrics']['logical_reads']):,} pág. (scan base: 8.090)".replace(",", "."),
+        f"{q4_i_reads} pág. (scan base: {q4_b_reads})",
         "#FEF3C7",
         "#B45309",
     )
-    draw_node(ax, 0.12, 0.28, 0.20, 0.19, "Index Seek", "IX_ClienteID\n(422 linhas)", "#DCFCE7", "#15803D", fontsize=7.0)
-    draw_node(ax, 0.36, 0.28, 0.20, 0.19, "Key Lookup", "PK_Pedidos\n(422 lookups)", "#FEE2E2", "#B91C1C", fontsize=7.0)
+    draw_node(ax, 0.12, 0.28, 0.20, 0.19, "Index Seek", f"IX_ClienteID\n({format_int_br(q4_i_rows)} linhas)", "#DCFCE7", "#15803D", fontsize=7.0)
+    draw_node(ax, 0.36, 0.28, 0.20, 0.19, "Key Lookup", f"PK_Pedidos\n({format_int_br(q4_i_lookups)} lookups)", "#FEE2E2", "#B91C1C", fontsize=7.0)
     draw_arrow(ax, 0.12, 0.40, 0.20, 0.61)
     draw_arrow(ax, 0.36, 0.40, 0.28, 0.61)
 
@@ -135,7 +226,7 @@ def generate_plan_figure() -> list[Path]:
         0.42,
         0.24,
         "Index Seek (Covering)",
-        f"IX_Pedidos_ClienteID_Cov\nINCLUDE (DataPedido, ValorTotal)\n{int(warm['Q4']['optimized']['logical_reads']['median'])} pág. | < 1 ms",
+        f"IX_Pedidos_ClienteID_Cov\nINCLUDE (DataPedido, ValorTotal)\n{q4_o_reads} pág. | {q4_o_ms}",
         "#DCFCE7",
         "#15803D",
     )
@@ -145,13 +236,13 @@ def generate_plan_figure() -> list[Path]:
     ax = axes[1, 0]
     ax.set_title("(c) Q7: Trade-off Batch Mode vs. Row Mode (MAXDOP 1)", fontsize=10, fontweight="bold", pad=6)
     ax.text(0.22, 0.93, f"Baseline (Custo Est. {p_q7_b['cost']})", ha="center", fontsize=8.0, fontweight="bold", color="#1E3A8A")
-    draw_node(ax, 0.22, 0.72, 0.40, 0.18, "Hash Match [Aggregate]", f"Modo: {p_q7_b['mode']} | 217,0 ms med.", "#DBEAFE", "#1D4ED8")
-    draw_node(ax, 0.22, 0.28, 0.40, 0.18, "Clustered Index Scan", "PK_Pedidos | 8.090 páginas", "#DBEAFE", "#1D4ED8")
+    draw_node(ax, 0.22, 0.72, 0.40, 0.18, "Hash Match [Aggregate]", f"Modo: {p_q7_b['mode']} | {q7_b_ms} med.", "#DBEAFE", "#1D4ED8")
+    draw_node(ax, 0.22, 0.28, 0.40, 0.18, "Clustered Index Scan", f"PK_Pedidos | {q7_b_reads} páginas", "#DBEAFE", "#1D4ED8")
     draw_arrow(ax, 0.22, 0.39, 0.22, 0.61)
 
     ax.text(0.75, 0.93, f"Otimizado (Custo Est. {p_q7_o['cost']})", ha="center", fontsize=8.0, fontweight="bold", color="#B91C1C")
-    draw_node(ax, 0.75, 0.72, 0.40, 0.18, "Stream Aggregate", f"Modo: {p_q7_o['mode']} | 364,0 ms med.", "#FEE2E2", "#B91C1C")
-    draw_node(ax, 0.75, 0.28, 0.40, 0.18, "Index Scan (Ordered)", "IX_Pedidos_Status_Cov | 5.658 pág.", "#DCFCE7", "#15803D")
+    draw_node(ax, 0.75, 0.72, 0.40, 0.18, "Stream Aggregate", f"Modo: {p_q7_o['mode']} | {q7_o_ms} med.", "#FEE2E2", "#B91C1C")
+    draw_node(ax, 0.75, 0.28, 0.40, 0.18, "Index Scan (Ordered)", f"IX_Pedidos_Status_Cov | {q7_o_reads} pág.", "#DCFCE7", "#15803D")
     draw_arrow(ax, 0.75, 0.39, 0.75, 0.61)
     ax.axvline(0.47, ymin=0.06, ymax=0.95, color="#CBD5E1", linestyle="--", lw=1)
 
@@ -161,17 +252,17 @@ def generate_plan_figure() -> list[Path]:
     ax.text(
         0.50,
         0.93,
-        f"Sequence Multi-Índice (Custo {p_w1_o['cost']} | {int(warm['W1']['optimized']['logical_reads']['median']):,} pág. vs 97.154 base)".replace(",", "."),
+        f"Sequence Multi-Índice (Custo {p_w1_o['cost']} | {w1_o_reads} pág. vs {w1_b_reads} base)",
         ha="center",
         fontsize=8.0,
         fontweight="bold",
         color="#B91C1C",
     )
-    draw_node(ax, 0.50, 0.74, 0.52, 0.15, "Sequence (Escrita 10.000 linhas)", "Manutenção síncrona em 4 B+ Trees", "#FEE2E2", "#B91C1C")
-    draw_node(ax, 0.11, 0.28, 0.18, 0.22, "Clustered\nInsert", "PK_ItensPedido\n10.000 linhas", "#DBEAFE", "#1D4ED8", fontsize=6.9)
-    draw_node(ax, 0.37, 0.28, 0.18, 0.22, "Index\nInsert", "IX_PedidoID\n10.000 linhas", "#FEE2E2", "#B91C1C", fontsize=6.9)
-    draw_node(ax, 0.63, 0.28, 0.18, 0.22, "Index\nInsert", "IX_ProdutoID\n10.000 linhas", "#FEE2E2", "#B91C1C", fontsize=6.9)
-    draw_node(ax, 0.89, 0.28, 0.18, 0.22, "Filter +\nInsert", "Desconto>=10\n1.964 linhas", "#FEF3C7", "#B45309", fontsize=6.9)
+    draw_node(ax, 0.50, 0.74, 0.52, 0.15, f"Sequence (Escrita {format_int_br(w1_total_rows)} linhas)", "Manutenção síncrona em 4 B+ Trees", "#FEE2E2", "#B91C1C")
+    draw_node(ax, 0.11, 0.28, 0.18, 0.22, "Clustered\nInsert", f"PK_ItensPedido\n{w1_pk_rows} linhas", "#DBEAFE", "#1D4ED8", fontsize=6.9)
+    draw_node(ax, 0.37, 0.28, 0.18, 0.22, "Index\nInsert", f"IX_PedidoID\n{w1_ped_rows} linhas", "#FEE2E2", "#B91C1C", fontsize=6.9)
+    draw_node(ax, 0.63, 0.28, 0.18, 0.22, "Index\nInsert", f"IX_ProdutoID\n{w1_prod_rows} linhas", "#FEE2E2", "#B91C1C", fontsize=6.9)
+    draw_node(ax, 0.89, 0.28, 0.18, 0.22, "Filter +\nInsert", f"Desconto>=10\n{w1_filt_rows} linhas", "#FEF3C7", "#B45309", fontsize=6.9)
     for cx in (0.11, 0.37, 0.63, 0.89):
         draw_arrow(ax, cx, 0.41, 0.50, 0.65)
 

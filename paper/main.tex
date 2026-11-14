@@ -13,12 +13,10 @@
 
 \title{Análise Experimental de Indexação, Planos de Execução e\\ Otimização de Consultas no Microsoft SQL Server 2022}
 
-\author{Equipe de Banco de Dados II\thanks{Projeto final da disciplina de Banco de Dados II (2026.2), ministrada pelo Prof. Dennis Sávio. Os nomes completos dos autores podem ser preenchidos na versão final de entrega.}\inst{1}}
+\author{Hermeson A., João Marcos R., Lizzandro W.,\\ Marcos W., Raildom R.\thanks{Projeto final da disciplina de Banco de Dados II (2026.2), ministrada pelo Prof. Dennis Sávio.}}
 
 \address{Curso de Bacharelado em Sistemas de Informação\\
-  Universidade Federal do Piauí (UFPI) -- CSHNB -- Picos -- PI -- Brasil
-  \email{equipe-bd2@ufpi.edu.br}
-}
+  Universidade Federal do Piauí (UFPI) -- CSHNB -- Picos -- PI -- Brasil}
 
 \begin{document}
 
@@ -66,7 +64,7 @@ Um aspecto crucial dos motores modernos --- presente no SQL Server 2019 e 2022 -
 
 Todos os experimentos foram conduzidos em ambiente conteinerizado reprodutível sobre \textit{host} Windows~11 Home Single Language equipado com processador Intel Core i5-1235U (12ª geração, 10 núcleos / 12 threads), 15,71~GB de RAM e armazenamento SSD. O SGBD avaliado foi o \textbf{Microsoft SQL Server 2022 RTM-CU28} (versão 16.0.4325.4, \textit{Developer Edition} 64-bit) executando em container Docker (Ubuntu 22.04.5 LTS) com limite de 4~GB de memória. A orquestração em Python 3 (gerenciada via \texttt{uv}) conectou-se ao motor por meio da biblioteca \texttt{pymssql}.
 
-Projetou-se um esquema relacional normalizado de comércio eletrônico B2C composto por quatro tabelas povoadas deterministicamente (\textit{seed}~42, com distribuições sintéticas realistas incluindo ~20\% de itens com desconto elevado $\ge 10{,}00$): \texttt{Clientes} (200.000 linhas), \texttt{Produtos} (50.000 linhas), \texttt{Pedidos} (1.500.000 linhas) e \texttt{ItensPedido} (4.500.000 linhas), totalizando \textbf{6.250.000 registros} e 328~MB em arquivo de dados (\texttt{.mdf}) sob modelo de recuperação \texttt{SIMPLE}.
+Projetou-se um esquema relacional normalizado de comércio eletrônico B2C composto por quatro tabelas povoadas deterministicamente (\textit{seed}~42, com distribuições sintéticas realistas incluindo ~20\% de itens com desconto elevado $\ge 10{,}00$): \texttt{Clientes} (200.000 linhas), \texttt{Produtos} (50.000 linhas), \texttt{Pedidos} (1.500.000 linhas) e \texttt{ItensPedido} (4.500.000 linhas), totalizando \textbf{6.250.000 registros} (400~MB alocados na base, com 259.064~KB em dados e 272.216~KB reservados) sob modelo de recuperação \texttt{SIMPLE}.
 
 Após a carga massiva e atualização completa de estatísticas (\texttt{sp\_updatestats}) em \texttt{Ecommerce\_Baseline} --- que preserva estritamente as 4 chaves primárias clusterizadas e nenhuma indexação secundária --- realizou-se \texttt{BACKUP} e \texttt{RESTORE} com isolamento de arquivos para gerar a base gêmea \texttt{Ecommerce\_Otimizado}. Verificou-se integridade referencial confiável (\texttt{is\_not\_trusted = 0}) e paridade absoluta nas 12 estatísticas iniciais entre ambas as bases antes da criação dos nove índices secundários resumidos na Tabela~\ref{tab:indices}.
 
@@ -116,7 +114,7 @@ $Q_6$ & \texttt{TOP 50} pedidos recentes & Eliminação de \textit{Sort} via lei
 $Q_7$ & Faturamento por \texttt{Status} & \textit{Hash Match [Batch]} $\rightarrow$ \textit{Stream Agg. [Row]} & 6 \\
 $Q_8$ & Busca textual em catálogo & \texttt{LIKE N'\%Notebook\%'} $\rightarrow$ \texttt{LIKE N'Notebook\%'} & 2.002 \\
 $Q_9$ & Total anual de pedidos (2025) & \texttt{YEAR(Data)=2025} $\rightarrow$ intervalo semiaberto & 1 \\
-$Q_{10}$ & Clientes sem pedidos em 2026 & Subconsulta correlacionada $\rightarrow$ \texttt{NOT EXISTS} & 10.060 \\
+$Q_{10}$ & Clientes sem pedidos & Subconsulta correlacionada $\rightarrow$ \texttt{NOT EXISTS} & 10.060 \\
 $W_1$ & Inserção OLTP em lote & Controle de \textit{write amplification} em 3 índices sec. & 10.000 \\
 \bottomrule
 \end{tabular}
@@ -152,7 +150,7 @@ Nas consultas estruturalmente mais complexas ($Q_5$ e $Q_{10}$), os benefícios 
 
 \subsection{Eliminação de \textit{Key Lookup} ($Q_4$) e Planos Físicos}
 
-A Figura~\ref{fig:q4-estagios} comprova empiricamente o papel da cláusula \texttt{INCLUDE} por meio da progressão em três estágios de $Q_4$. No Baseline, o filtro \texttt{WHERE ClienteID = 12345} exigia varredura completa das 8.090 páginas de \texttt{Pedidos} (111,0~ms). A criação de um índice simples apenas sobre \texttt{ClienteID} (estágio intermediário) habilitou \textit{Index Seek} retornando 422 linhas, mas forçou 422 operações individuais de \textit{Key Lookup} em \texttt{PK\_Pedidos} para recuperar \texttt{DataPedido} e \texttt{ValorTotal} --- consumindo ainda \textbf{1.296 leituras lógicas} (3~páginas por \textit{lookup} somadas à travessia da árvore secundária). Ao substituir o índice por \texttt{IX\_Pedidos\_ClienteID\_Cov} contendo \texttt{INCLUDE (DataPedido, ValorTotal)}, todas as projeções passaram a residir nas folhas do índice secundário: o \textit{Key Lookup} e o \textit{Nested Loops} desapareceram do plano, reduzindo as leituras para \textbf{5 páginas} (-99,61\% frente ao estágio intermediário e -99,94\% frente ao Baseline) e a latência para $<1$~ms.
+A Figura~\ref{fig:q4-estagios} comprova empiricamente o papel da cláusula \texttt{INCLUDE} por meio da progressão em três estágios de $Q_4$. No Baseline, o filtro \texttt{WHERE ClienteID BETWEEN 1000 AND 1050} exigia varredura completa das 8.090 páginas de \texttt{Pedidos} (111,0~ms). A criação de um índice simples apenas sobre \texttt{ClienteID} (estágio intermediário) habilitou \textit{Index Seek} retornando 422 linhas, mas forçou 422 operações individuais de \textit{Key Lookup} em \texttt{PK\_Pedidos} para recuperar \texttt{DataPedido} e \texttt{ValorTotal} --- consumindo ainda \textbf{1.296 leituras lógicas} (3~páginas por \textit{lookup} somadas à travessia da árvore secundária). Ao substituir o índice por \texttt{IX\_Pedidos\_ClienteID\_Cov} contendo \texttt{INCLUDE (DataPedido, ValorTotal)}, todas as projeções passaram a residir nas folhas do índice secundário: o \textit{Key Lookup} e o \textit{Nested Loops} desapareceram do plano, reduzindo as leituras para \textbf{5 páginas} (-99,61\% frente ao estágio intermediário e -99,94\% frente ao Baseline) e a latência para $<1$~ms.
 
 \begin{figure}[htbp]
 \centering

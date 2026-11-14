@@ -38,7 +38,7 @@
       "physical_reads": 0,
       "read_ahead_reads": 0,
       "cpu_time_ms": 0,
-      "elapsed_time_ms": 4,
+      "elapsed_time_ms": 1,
       "row_count": 6028,
       "table_io": {
         "Pedidos": 34
@@ -64,7 +64,7 @@
       "physical_reads": 0,
       "read_ahead_reads": 0,
       "cpu_time_ms": 0,
-      "elapsed_time_ms": 3,
+      "elapsed_time_ms": 1,
       "row_count": 3198,
       "table_io": {
         "Pedidos": 17
@@ -82,7 +82,7 @@
       "logical_reads": 5,
       "physical_reads": 0,
       "read_ahead_reads": 0,
-      "cpu_time_ms": 1,
+      "cpu_time_ms": 0,
       "elapsed_time_ms": 0,
       "row_count": 422,
       "table_io": {
@@ -102,14 +102,14 @@
       "Index Seek (ItensPedido.IX_ItensPedido_PedidoID)"
     ],
     "metrics": {
-      "logical_reads": 5282,
+      "logical_reads": 5278,
       "physical_reads": 0,
       "read_ahead_reads": 0,
-      "cpu_time_ms": 30,
-      "elapsed_time_ms": 30,
+      "cpu_time_ms": 7,
+      "elapsed_time_ms": 13,
       "row_count": 4965,
       "table_io": {
-        "ItensPedido": 5265,
+        "ItensPedido": 5261,
         "Pedidos": 10,
         "Clientes": 7
       }
@@ -127,7 +127,7 @@
       "logical_reads": 3,
       "physical_reads": 0,
       "read_ahead_reads": 0,
-      "cpu_time_ms": 1,
+      "cpu_time_ms": 0,
       "elapsed_time_ms": 0,
       "row_count": 50,
       "table_io": {
@@ -148,8 +148,8 @@
       "logical_reads": 5658,
       "physical_reads": 0,
       "read_ahead_reads": 0,
-      "cpu_time_ms": 790,
-      "elapsed_time_ms": 790,
+      "cpu_time_ms": 286,
+      "elapsed_time_ms": 289,
       "row_count": 6,
       "table_io": {
         "Pedidos": 5658
@@ -168,7 +168,7 @@
       "physical_reads": 0,
       "read_ahead_reads": 0,
       "cpu_time_ms": 0,
-      "elapsed_time_ms": 5,
+      "elapsed_time_ms": 1,
       "row_count": 2002,
       "table_io": {
         "Produtos": 28
@@ -195,8 +195,8 @@
       "logical_reads": 1565,
       "physical_reads": 0,
       "read_ahead_reads": 0,
-      "cpu_time_ms": 50,
-      "elapsed_time_ms": 51,
+      "cpu_time_ms": 16,
+      "elapsed_time_ms": 18,
       "row_count": 1,
       "table_io": {
         "Pedidos": 1565
@@ -214,15 +214,15 @@
       "Index Scan (Pedidos.IX_Pedidos_ClienteID_Cov)"
     ],
     "metrics": {
-      "logical_reads": 8252,
+      "logical_reads": 8248,
       "physical_reads": 0,
       "read_ahead_reads": 0,
-      "cpu_time_ms": 429,
-      "elapsed_time_ms": 438,
+      "cpu_time_ms": 160,
+      "elapsed_time_ms": 163,
       "row_count": 10060,
       "table_io": {
         "Pedidos": 5396,
-        "Clientes": 2856
+        "Clientes": 2852
       }
     },
     "plan_file": "results/plans/optimized/q10_optimized.sqlplan"
@@ -255,16 +255,16 @@
       "Table Spool"
     ],
     "metrics": {
-      "logical_reads": 180057,
+      "logical_reads": 180056,
       "physical_reads": 0,
-      "read_ahead_reads": 0,
-      "cpu_time_ms": 814,
-      "elapsed_time_ms": 2068,
+      "read_ahead_reads": 4,
+      "cpu_time_ms": 135,
+      "elapsed_time_ms": 143,
       "row_count": 10000,
       "table_io": {
         "ItensPedido": 108122,
         "Worktable": 40776,
-        "Produtos": 637,
+        "Produtos": 636,
         "Pedidos": 30522
       }
     },
