@@ -40,3 +40,4 @@ Fonte da verdade: `Trabalho Final.pdf`. **[PDF]** = literal; **[DERIVADO]** = in
 | [08 apresentacao](08-apresentacao/apresentacao.md) | Roteiro de 20 min e demo com duas bases |
 | [09 decisoes e riscos](09-decisoes-e-pendencias/decisoes-e-riscos.md) | Decisoes consolidadas, pendencias e riscos mitigados |
 | [10 checklist final](10-checklists/checklist-final.md) | Validacao antes de entregar |
+| [10 relatorio de conformidade](10-checklists/relatorio-final-conformidade.md) | Relatorio detalhado de conformidade e evidencias |

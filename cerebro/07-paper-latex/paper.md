@@ -32,3 +32,10 @@
    * Q4: Eliminacao completa de *Key Lookup* comparando Baseline (*Clustered Index Scan*), indice simples (*Index Seek* + *Key Lookup*) e *Covering Index* com `INCLUDE`;
    * W1: Custo colateral de DML na manutencao de multiplas arvores B+ tree.
 3. **Monitoramento Continuo:** Executar `scripts/compile_paper.py` regularmente durante a escrita para atestar ausencia de *Overfull \hbox* e conferir a contagem total de paginas no PDF resultante.
+
+---
+
+## 4. Estado Atual de Implementacao (Concluido em 14/11/2026)
+* **Artefatos produzidos:** [main.tex](../../paper/main.tex), [sbc-template.bib](../../paper/sbc-template.bib) (8 referencias reais formatadas por `sbc.bst`), [tabela_resultados.tex](../../paper/generated/tabela_resultados.tex) e 5 figuras a 300 DPI em `paper/figures/` (`fig1_leituras_logicas.png` a `fig5_planos_execucao.png`).
+* **Validacao automatica:** `uv run python scripts/compile_paper.py` gerou [main.pdf](../../paper/main.pdf) com **10 paginas exatas** (`1.311.836` bytes), `overfull_count: 0`, `undefined_warnings: []`, `bibtex_issues: []` e `"passed": true` registrados em [latex_validation.json](../../results/latex_validation.json).
+* **Pendencia manual pre-submissao:** substituir o placeholder `\author{Equipe de Banco de Dados II}` pelos nomes completos e e-mails dos integrantes em `paper/main.tex` e recompilar antes de enviar ate **17/11/2026**.

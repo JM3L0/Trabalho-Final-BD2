@@ -31,5 +31,13 @@ A adocao das duas bases de dados pre-configuradas elimina o maior risco de falha
     * `02_q3_indice_composto.sql`
     * `03_q4_eliminacao_key_lookup.sql`
     * `04_w1_tradeoff_escrita.sql`
-* **Contingencia (Plano B):**
-  * Gravacao prévia de video demonstrativo com captura de tela e audio, alem de capturas estaticas em alta resolucao dos planos de execucao, garantindo backup total contra falhas eletricas ou de rede no local da apresentacao.
+* **Contingencia (Planos B e C):**
+  * **Plano B (Offline XML):** abertura direta dos `.sqlplan` pre-capturados em `results/plans/` (23 no acervo completo, com 9 destacados para `Q1`, `Q3`, `Q4` e `W1` em [README_CONTINGENCIA.md](../../scripts/demo/README_CONTINGENCIA.md)).
+  * **Plano C (Video Backup — acao manual da equipe):** gravacao previa em tela cheia (`slides/demo_backup_local.mp4`) antes da apresentacao em **18–19/11/2026**, garantindo backup total contra falhas de Docker, rede ou projetor.
+
+---
+
+## 3. Materiais Produzidos (Concluido em 14/11/2026)
+* **Slides Beamer 16:9:** [apresentacao.tex](../../slides/apresentacao.tex) e [apresentacao.pdf](../../slides/apresentacao.pdf) (**13 paginas**, `1.485.698` bytes, 0 warnings/overfulls), cobrindo motivacao, B+ Trees, otimizador, metodologia, resultados (*Warm* e *Cold*), planos `ShowPlanXML`, demonstracao ao vivo, trade-offs (`Q7` e `W1`) e conclusoes.
+* **Roteiro Cronometrado Final:** [roteiro-apresentacao.md](../../slides/roteiro-apresentacao.md) (**17m30s** totais, posicionando a demo ao vivo na Pagina 12 entre 11m30s e 16m00s, com 2m30s de margem para arguicao).
+* **Kit Validado:** os 4 scripts em `scripts/demo/` foram validados contra ambas as bases via [test_demo_kit.py](../../scripts/test_demo_kit.py) com integridade pos-rollback confirmada (`4.500.000` linhas em `dbo.ItensPedido`).
