@@ -1,0 +1,273 @@
+{
+  "Q1": {
+    "title": "Filtro simples em coluna nao indexada (Email)",
+    "category": "Indice Simples (Scan vs Seek)",
+    "operators": [
+      "Nested Loops [Inner Join]",
+      "Index Seek (Clientes.IX_Clientes_Email)",
+      "Clustered Index Seek (Clientes.PK_Clientes)"
+    ],
+    "metrics": {
+      "logical_reads": 6,
+      "physical_reads": 0,
+      "read_ahead_reads": 0,
+      "cpu_time_ms": 0,
+      "elapsed_time_ms": 0,
+      "row_count": 1,
+      "table_io": {
+        "Clientes": 6
+      }
+    },
+    "plan_file": "results/plans/optimized/q1_optimized.sqlplan"
+  },
+  "Q2": {
+    "title": "Filtro seletivo por faixa de datas em Pedidos",
+    "category": "Indice Simples Range (Scan vs Seek)",
+    "operators": [
+      "Nested Loops [Inner Join]",
+      "Merge Interval",
+      "Concatenation",
+      "Compute Scalar",
+      "Constant Scan",
+      "Compute Scalar",
+      "Constant Scan",
+      "Index Seek (Pedidos.IX_Pedidos_DataPedido)"
+    ],
+    "metrics": {
+      "logical_reads": 34,
+      "physical_reads": 0,
+      "read_ahead_reads": 0,
+      "cpu_time_ms": 0,
+      "elapsed_time_ms": 4,
+      "row_count": 6028,
+      "table_io": {
+        "Pedidos": 34
+      }
+    },
+    "plan_file": "results/plans/optimized/q2_optimized.sqlplan"
+  },
+  "Q3": {
+    "title": "Filtro composto por Status (igualdade) e DataPedido (faixa)",
+    "category": "Indice Composto (Ordem de Colunas)",
+    "operators": [
+      "Nested Loops [Inner Join]",
+      "Merge Interval",
+      "Concatenation",
+      "Compute Scalar",
+      "Constant Scan",
+      "Compute Scalar",
+      "Constant Scan",
+      "Index Seek (Pedidos.IX_Pedidos_Status_Data)"
+    ],
+    "metrics": {
+      "logical_reads": 17,
+      "physical_reads": 0,
+      "read_ahead_reads": 0,
+      "cpu_time_ms": 0,
+      "elapsed_time_ms": 3,
+      "row_count": 3198,
+      "table_io": {
+        "Pedidos": 17
+      }
+    },
+    "plan_file": "results/plans/optimized/q3_optimized.sqlplan"
+  },
+  "Q4": {
+    "title": "Projecao restrita por ClienteID (Eliminacao de Key Lookup)",
+    "category": "Covering Index (INCLUDE)",
+    "operators": [
+      "Index Seek (Pedidos.IX_Pedidos_ClienteID_Cov)"
+    ],
+    "metrics": {
+      "logical_reads": 5,
+      "physical_reads": 0,
+      "read_ahead_reads": 0,
+      "cpu_time_ms": 1,
+      "elapsed_time_ms": 0,
+      "row_count": 422,
+      "table_io": {
+        "Pedidos": 5
+      }
+    },
+    "plan_file": "results/plans/optimized/q4_optimized.sqlplan"
+  },
+  "Q5": {
+    "title": "Juncao de 3 tabelas (Clientes, Pedidos, ItensPedido)",
+    "category": "Operadores de Juncao (Hash Match vs Nested Loops)",
+    "operators": [
+      "Nested Loops [Inner Join]",
+      "Merge Join [Inner Join]",
+      "Clustered Index Seek (Clientes.PK_Clientes)",
+      "Index Seek (Pedidos.IX_Pedidos_ClienteID_Cov)",
+      "Index Seek (ItensPedido.IX_ItensPedido_PedidoID)"
+    ],
+    "metrics": {
+      "logical_reads": 5282,
+      "physical_reads": 0,
+      "read_ahead_reads": 0,
+      "cpu_time_ms": 30,
+      "elapsed_time_ms": 30,
+      "row_count": 4965,
+      "table_io": {
+        "ItensPedido": 5265,
+        "Pedidos": 10,
+        "Clientes": 7
+      }
+    },
+    "plan_file": "results/plans/optimized/q5_optimized.sqlplan"
+  },
+  "Q6": {
+    "title": "Paginacao dos 50 pedidos mais recentes (TOP 50 ORDER BY DataPedido DESC)",
+    "category": "Eliminacao de Sort",
+    "operators": [
+      "Top",
+      "Index Scan (Pedidos.IX_Pedidos_DataPedido)"
+    ],
+    "metrics": {
+      "logical_reads": 3,
+      "physical_reads": 0,
+      "read_ahead_reads": 0,
+      "cpu_time_ms": 1,
+      "elapsed_time_ms": 0,
+      "row_count": 50,
+      "table_io": {
+        "Pedidos": 3
+      }
+    },
+    "plan_file": "results/plans/optimized/q6_optimized.sqlplan"
+  },
+  "Q7": {
+    "title": "Agregacao de faturamento por Status (GROUP BY Status)",
+    "category": "Agregacao (Hash Aggregate vs Stream Aggregate)",
+    "operators": [
+      "Compute Scalar",
+      "Stream Aggregate",
+      "Index Scan (Pedidos.IX_Pedidos_Status_Cov)"
+    ],
+    "metrics": {
+      "logical_reads": 5658,
+      "physical_reads": 0,
+      "read_ahead_reads": 0,
+      "cpu_time_ms": 790,
+      "elapsed_time_ms": 790,
+      "row_count": 6,
+      "table_io": {
+        "Pedidos": 5658
+      }
+    },
+    "plan_file": "results/plans/optimized/q7_optimized.sqlplan"
+  },
+  "Q8": {
+    "title": "Busca textual em Produtos (LIKE '%Notebook%' vs LIKE 'Notebook%')",
+    "category": "Sargabilidade Textual",
+    "operators": [
+      "Index Seek (Produtos.IX_Produtos_Nome)"
+    ],
+    "metrics": {
+      "logical_reads": 28,
+      "physical_reads": 0,
+      "read_ahead_reads": 0,
+      "cpu_time_ms": 0,
+      "elapsed_time_ms": 5,
+      "row_count": 2002,
+      "table_io": {
+        "Produtos": 28
+      }
+    },
+    "plan_file": "results/plans/optimized/q8_optimized.sqlplan"
+  },
+  "Q9": {
+    "title": "Filtro temporal com funcao no WHERE (YEAR(DataPedido) = 2025)",
+    "category": "Sargabilidade Temporal",
+    "operators": [
+      "Compute Scalar",
+      "Stream Aggregate",
+      "Nested Loops [Inner Join]",
+      "Merge Interval",
+      "Concatenation",
+      "Compute Scalar",
+      "Constant Scan",
+      "Compute Scalar",
+      "Constant Scan",
+      "Index Seek (Pedidos.IX_Pedidos_DataPedido)"
+    ],
+    "metrics": {
+      "logical_reads": 1565,
+      "physical_reads": 0,
+      "read_ahead_reads": 0,
+      "cpu_time_ms": 50,
+      "elapsed_time_ms": 51,
+      "row_count": 1,
+      "table_io": {
+        "Pedidos": 1565
+      }
+    },
+    "plan_file": "results/plans/optimized/q9_optimized.sqlplan"
+  },
+  "Q10": {
+    "title": "Clientes sem pedidos (Subconsulta correlacionada vs NOT EXISTS)",
+    "category": "Otimizacao Logica de Subconsulta",
+    "operators": [
+      "Merge Join [Left Anti Semi Join]",
+      "Clustered Index Scan (Clientes.PK_Clientes)",
+      "Stream Aggregate",
+      "Index Scan (Pedidos.IX_Pedidos_ClienteID_Cov)"
+    ],
+    "metrics": {
+      "logical_reads": 8252,
+      "physical_reads": 0,
+      "read_ahead_reads": 0,
+      "cpu_time_ms": 429,
+      "elapsed_time_ms": 438,
+      "row_count": 10060,
+      "table_io": {
+        "Pedidos": 5396,
+        "Clientes": 2856
+      }
+    },
+    "plan_file": "results/plans/optimized/q10_optimized.sqlplan"
+  },
+  "W1": {
+    "title": "Insercao massiva em ItensPedido (10.000 linhas com ROLLBACK)",
+    "category": "Trade-off de Escrita (Manutencao de B+ Trees)",
+    "operators": [
+      "Sequence",
+      "Assert",
+      "Nested Loops [Left Semi Join]",
+      "Index Insert (ItensPedido.IX_ItensPedido_PedidoID)",
+      "Sort",
+      "Table Spool",
+      "Clustered Index Insert (ItensPedido.PK_ItensPedido)",
+      "Table Spool",
+      "Compute Scalar",
+      "Clustered Index Seek (ItensPedido.PK_ItensPedido)",
+      "Row Count Spool",
+      "Clustered Index Seek (Pedidos.PK_Pedidos)",
+      "Assert",
+      "Merge Join [Left Semi Join]",
+      "Index Insert (ItensPedido.IX_ItensPedido_ProdutoID)",
+      "Sort",
+      "Table Spool",
+      "Clustered Index Scan (Produtos.PK_Produtos)",
+      "Index Insert (ItensPedido.IX_ItensPedido_Desconto_Alto)",
+      "Sort",
+      "Filter",
+      "Table Spool"
+    ],
+    "metrics": {
+      "logical_reads": 180057,
+      "physical_reads": 0,
+      "read_ahead_reads": 0,
+      "cpu_time_ms": 814,
+      "elapsed_time_ms": 2068,
+      "row_count": 10000,
+      "table_io": {
+        "ItensPedido": 108122,
+        "Worktable": 40776,
+        "Produtos": 637,
+        "Pedidos": 30522
+      }
+    },
+    "plan_file": "results/plans/optimized/w1_optimized.sqlplan"
+  }
+}

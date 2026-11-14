@@ -1,0 +1,20 @@
+{
+  "code": "Q4_INTERMEDIATE",
+  "operators": [
+    "Nested Loops [Inner Join]",
+    "Index Seek (Pedidos.IX_Pedidos_ClienteID)",
+    "Clustered Index Seek (Pedidos.PK_Pedidos)"
+  ],
+  "metrics": {
+    "logical_reads": 1296,
+    "physical_reads": 0,
+    "read_ahead_reads": 0,
+    "cpu_time_ms": 1,
+    "elapsed_time_ms": 1,
+    "row_count": 422,
+    "table_io": {
+      "Pedidos": 1296
+    }
+  },
+  "plan_file": "results/plans/optimized/q4_intermediate_lookup.sqlplan"
+}

@@ -1,0 +1,25 @@
+# Dados temporarios e backups pesados
+data/*
+!data/.gitkeep
+
+# Ambiente Python / uv
+.venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+
+# Segredos locais
+.env
+.env.*
+!.env.example
+
+# Artefatos auxiliares de compilacao LaTeX
+paper/*.aux
+paper/*.bbl
+paper/*.blg
+paper/*.log
+paper/*.out
+paper/*.toc
+paper/*.fls
+paper/*.fdb_latexmk
+paper/*.synctex.gz

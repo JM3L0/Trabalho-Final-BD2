@@ -1,0 +1,53 @@
+{
+  "pdf_path": "paper/main.pdf",
+  "pdf_bytes": 1311836,
+  "pages": 10,
+  "max_pages": 10,
+  "overfull_count": 0,
+  "undefined_warnings": [],
+  "bibtex_issues": [],
+  "figures": [
+    {
+      "path": "figures/fig1_leituras_logicas.png",
+      "exists": true,
+      "dpi": [
+        300.0,
+        300.0
+      ]
+    },
+    {
+      "path": "figures/fig2_tempos_execucao_boxplot.png",
+      "exists": true,
+      "dpi": [
+        300.0,
+        300.0
+      ]
+    },
+    {
+      "path": "figures/fig3_q4_tres_estagios.png",
+      "exists": true,
+      "dpi": [
+        300.0,
+        300.0
+      ]
+    },
+    {
+      "path": "figures/fig5_planos_execucao.png",
+      "exists": true,
+      "dpi": [
+        300.0,
+        300.0
+      ]
+    },
+    {
+      "path": "figures/fig4_warm_vs_cold_cache.png",
+      "exists": true,
+      "dpi": [
+        300.0,
+        300.0
+      ]
+    }
+  ],
+  "passed": true,
+  "errors": []
+}

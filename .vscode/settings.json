@@ -1,0 +1,25 @@
+{
+  "mssql.connections": [
+    {
+      "profileName": "BD2 - Ecommerce_Baseline",
+      "server": "127.0.0.1,1433",
+      "database": "Ecommerce_Baseline",
+      "authenticationType": "SqlLogin",
+      "user": "sa",
+      "savePassword": false,
+      "encrypt": "Optional",
+      "trustServerCertificate": true
+    },
+    {
+      "profileName": "BD2 - Ecommerce_Otimizado",
+      "server": "127.0.0.1,1433",
+      "database": "Ecommerce_Otimizado",
+      "authenticationType": "SqlLogin",
+      "user": "sa",
+      "savePassword": false,
+      "encrypt": "Optional",
+      "trustServerCertificate": true
+    }
+  ],
+  "files.eol": "\n"
+}

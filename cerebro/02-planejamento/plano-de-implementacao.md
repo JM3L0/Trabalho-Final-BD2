@@ -80,7 +80,7 @@ O projeto e estruturado em 6 partes bem delimitadas, garantindo entendimento sim
 * **2.3. Carga Massiva Otimizada na Base `Ecommerce_Baseline`:**
   * Criar a base `Ecommerce_Baseline` inicialmente apenas com as chaves primarias (ou tabelas heap/clustered basicas).
   * Configurar o banco de dados temporariamente para modelo de recuperacao simples (`ALTER DATABASE [Ecommerce_Baseline] SET RECOVERY SIMPLE;`), impedindo a explosao de espaco do arquivo de log de transacoes (`.ldf`).
-  * Executar a carga massiva dos dados sinteticos utilizando `BULK INSERT` apontando para `/var/opt/mssql/data_import/`, com parametros de lote e codificacao: `BATCHSIZE = 100000`, `DATAFILETYPE = 'char'`, `CODEPAGE = '65001'` e `ROWTERMINATOR = '0x0a'`, garantindo leitura precisa dos acentos e quebras de linha em ambos os SOs.
+  * Executar a carga massiva dos dados sinteticos utilizando `BULK INSERT` apontando para `/var/opt/mssql/data_import/`, com parametros de lote `BATCHSIZE = 100000`, `TABLOCK`, `CHECK_CONSTRAINTS` e `ROWTERMINATOR = '0x0a'`. Como o SQL Server em Linux nao suporta a clausula `CODEPAGE = '65001'` (erro `16202`), tabelas com acentuacao (`Clientes`, `Produtos`) utilizam arquivos temporarios UTF-16 (`DATAFILETYPE = 'widechar'`) e tabelas ASCII (`Pedidos`, `ItensPedido`) utilizam `DATAFILETYPE = 'char'`, garantindo preservacao integral dos acentos e quebras de linha em ambos os SOs.
   * Validar a integridade referencial e o total exato de registros em cada tabela.
 * **2.4. Criacao da Base Gemea `Ecommerce_Otimizado` via Backup/Restore Nativo:**
   * Realizar um backup completo da base de baseline: `BACKUP DATABASE [Ecommerce_Baseline] TO DISK = '/var/opt/mssql/data_import/ecommerce_init.bak';`.

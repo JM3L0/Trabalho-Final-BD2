@@ -3,8 +3,8 @@
 ## 1. Decisoes Consolidadas do Grupo
 | Decisao | Definicao Final | Justificativa / Documento de Referencia |
 |---|---|---|
-| **SGBD** | **Microsoft SQL Server 2022 Developer Edition (Docker)** | Atende a restricao "comercial, exceto MySQL", sem limitacao de tamanho de dados e com ferramentas ricas de planos ([comparativo-sgbds.md](../../comparativo-sgbds.md)). |
-| **Arquitetura de Dados** | **Duas Bases Gemeas (`Ecommerce_Baseline` e `Ecommerce_Otimizado`)** | Clonadas via `BACKUP` e `RESTORE ... WITH MOVE`. Garante grupo de controle imutavel e elimina comandos DDL durante a apresentacao oral ([plano-de-implementacao.md](../../plano-de-implementacao.md)). |
+| **SGBD** | **Microsoft SQL Server 2022 Developer Edition (Docker)** | Atende a restricao "comercial, exceto MySQL", sem limitacao de tamanho de dados e com ferramentas ricas de planos ([comparativo-sgbds.md](../06-experimentacao/comparativo-sgbds.md)). |
+| **Arquitetura de Dados** | **Duas Bases Gemeas (`Ecommerce_Baseline` e `Ecommerce_Otimizado`)** | Clonadas via `BACKUP` e `RESTORE ... WITH MOVE`. Garante grupo de controle imutavel e elimina comandos DDL durante a apresentacao oral ([plano-de-implementacao.md](../02-planejamento/plano-de-implementacao.md)). |
 | **Dataset** | **E-Commerce B2C Sintetico (~6,25M linhas)** | Tabelas `Clientes` (200k), `Produtos` (50k), `Pedidos` (1,5M) e `ItensPedido` (4,5M). Semente pseudoaleatoria fixa (`seed=42`) para 100% de reprodutibilidade. |
 | **Compatibilidade** | **Multiplataforma (Windows e Ubuntu Linux)** | Docker Compose com volumes POSIX relativos, Python gerenciado por `uv`, driver `pymssql` com FreeTDS embutido, `pathlib.Path` e `.gitattributes`. |
 | **Template do Paper** | **Template Oficial SBC em LaTeX** | Pacote extraido de `SBC_Conferences_Template___updated_sbc_template_sty_v2017__1_.zip`, compilado via script `scripts/compile_paper.py`. |

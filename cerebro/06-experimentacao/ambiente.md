@@ -2,7 +2,7 @@
 
 ## 1. SGBD Definido (Restricao do PDF: comercial, exceto MySQL)
 * **Escolha:** **Microsoft SQL Server 2022 Developer Edition** em container Docker (`mcr.microsoft.com/mssql/server:2022-latest`, `MSSQL_PID=Developer`).
-* **Justificativa:** Conforme [comparativo-sgbds.md](../../comparativo-sgbds.md), e formalmente comercial, gratuito para estudo e desenvolvimento, sem limitacao de tamanho de dados (ao contrario do Express), com suporte nativo a planos graficos e metricas exatas (`SET STATISTICS IO, TIME ON` e `SET STATISTICS XML ON`).
+* **Justificativa:** Conforme [comparativo-sgbds.md](comparativo-sgbds.md), e formalmente comercial, gratuito para estudo e desenvolvimento, sem limitacao de tamanho de dados (ao contrario do Express), com suporte nativo a planos graficos e metricas exatas (`SET STATISTICS IO, TIME ON` e `SET STATISTICS XML ON`).
 * **Estrategia de Duas Bases na Mesma Instancia:**
   * `Ecommerce_Baseline`: Base com dados carregados e apenas chaves primarias (ou tabelas heap/clustered basicas), sem indices secundarios, servindo de grupo de controle cientifico permanente.
   * `Ecommerce_Otimizado`: Base clonada da baseline via `BACKUP DATABASE` e `RESTORE DATABASE ... WITH MOVE`, recebendo todos os indices secundarios, indices com `INCLUDE`, indices filtrados e consultas otimizadas.
@@ -46,4 +46,4 @@ O ambiente e os scripts foram projetados para serem executados com paridade tota
 * **Diretrizes de Carga Massiva Otimizada:**
   * Mapeamento de volume Docker: `./data:/var/opt/mssql/data_import`.
   * Modelo de recuperacao: `ALTER DATABASE [Ecommerce_Baseline] SET RECOVERY SIMPLE;` para evitar crescimento excessivo do arquivo de log (`.ldf`).
-  * Carga via `BULK INSERT` com `BATCHSIZE = 100000`, `DATAFILETYPE = 'char'`, `CODEPAGE = '65001'` e `ROWTERMINATOR = '0x0a'`.
+  * Carga via `BULK INSERT` com `BATCHSIZE = 100000`, `TABLOCK`, `CHECK_CONSTRAINTS` (`DATAFILETYPE = 'widechar'` via UTF-16 temporario para `Clientes`/`Produtos` com acentuacao, e `DATAFILETYPE = 'char'` + `ROWTERMINATOR = '0x0a'` para `Pedidos`/`ItensPedido`, contornando a restricao do SQL Server Linux que nao suporta `CODEPAGE = '65001'`).

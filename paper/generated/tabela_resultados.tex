@@ -1,0 +1,26 @@
+% Gerado automaticamente por scripts/analyze_results.py (Warm Cache N=30)
+\begin{table}[ht]
+\centering
+\caption{Comparativo de desempenho em \textit{Warm Cache} ($N=30$): Leituras Lógicas, Tempo de Execução (mediana $\pm$ DP), Redução de E/S, \textit{Speedup} e significância estatística.}
+\label{tab:resultados-warm}
+\scriptsize
+\setlength{\tabcolsep}{3.5pt}
+\begin{tabular}{lrrrrrrr}
+\toprule
+\textbf{Cons.} & \textbf{Leit. Base} & \textbf{Leit. Otim.} & \textbf{Red. E/S} & \textbf{Tempo Base (ms)} & \textbf{Tempo Otim. (ms)} & \textbf{Speedup} & \textbf{$p$-valor} \\
+\midrule
+Q1 & 2.856 & 6 & 99,79\% & 15,0 $\pm$ 4,4 & $<1$ $\pm$ 0,0 & $>$15x ($<$1 ms) & $<10^{-4}$ \\
+Q2 & 8.090 & 34 & 99,58\% & 104,5 $\pm$ 96,9 & 1,5 $\pm$ 1,8 & 69,7x & $<10^{-4}$ \\
+Q3 & 8.090 & 17 & 99,79\% & 87,0 $\pm$ 17,5 & 1,0 $\pm$ 0,6 & 87,0x & $<10^{-4}$ \\
+Q4 & 8.090 & 5 & 99,94\% & 111,0 $\pm$ 62,9 & $<1$ $\pm$ 0,3 & $>$111x ($<$1 ms) & $<10^{-4}$ \\
+Q5 & 28.818 & 5.295 & 81,63\% & 450,0 $\pm$ 19,4 & 12,0 $\pm$ 2,4 & 37,5x & $<10^{-4}$ \\
+Q6 & 8.090 & 3 & 99,96\% & 424,0 $\pm$ 25,0 & $<1$ $\pm$ 0,0 & $>$424x ($<$1 ms) & $<10^{-4}$ \\
+\textbf{Q7} & 8.090 & 5.658 & 30,06\% & 217,0 $\pm$ 11,8 & 364,0 $\pm$ 36,0 & 0,60x & $<10^{-4}$ \\
+Q8 & 637 & 28 & 95,60\% & 114,0 $\pm$ 3,6 & 1,0 $\pm$ 0,4 & 114,0x & $<10^{-4}$ \\
+Q9 & 8.090 & 1.565 & 80,66\% & 226,0 $\pm$ 17,9 & 26,0 $\pm$ 1,8 & 8,69x & $<10^{-4}$ \\
+Q10 & 10.946 & 8.252 & 24,61\% & 370,5 $\pm$ 34,2 & 219,5 $\pm$ 23,9 & 1,69x & $<10^{-4}$ \\
+\midrule
+\textbf{W1} & 97.154 & 180.057 & -85,33\% & 384,0 $\pm$ 113,9 & 404,0 $\pm$ 853,2 & 0,95x & 0,129 \\
+\bottomrule
+\end{tabular}
+\end{table}

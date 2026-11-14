@@ -1,0 +1,18 @@
+{
+  "sql_server_version": "Microsoft SQL Server 2022 (RTM-CU28) (KB5125472) - 16.0.4325.4 (X64) \n\tNov  4 2026 14:09:11 \n\tCopyright (C) 2022 Microsoft Corporation\n\tDeveloper Edition (64-bit) on Linux (Ubuntu 22.04.5 LTS) <X64>",
+  "ecommerce_baseline_space_summary": [
+    [
+      "Ecommerce_Baseline",
+      "400.00 MB",
+      "62.16 MB"
+    ]
+  ],
+  "ecommerce_baseline_space_details": [
+    [
+      "272216 KB",
+      "259064 KB",
+      "2576 KB",
+      "10576 KB"
+    ]
+  ]
+}

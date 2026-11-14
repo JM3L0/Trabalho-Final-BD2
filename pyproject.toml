@@ -1,0 +1,13 @@
+[project]
+name = "trabalho-final-bd2"
+version = "0.1.0"
+description = "Experimentos em SQL Server 2022, analise estatistica e artigo SBC para BD II (UFPI 2026.2)"
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+    "matplotlib>=3.9.0",
+    "numpy>=1.26.0",
+    "pymssql>=2.3.0",
+    "python-dotenv>=1.0.0",
+    "scipy>=1.13.0",
+]
