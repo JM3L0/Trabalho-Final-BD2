@@ -1,0 +1,322 @@
+\documentclass[10pt,a4paper]{article}
+
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage[brazilian]{babel}
+\usepackage[a4paper,top=1.25cm,bottom=1.3cm,left=1.45cm,right=1.45cm,headheight=13pt]{geometry}
+\usepackage{xcolor}
+\usepackage{colortbl}
+\usepackage{booktabs}
+\usepackage{tabularx}
+\usepackage{array}
+\usepackage{enumitem}
+\usepackage{listings}
+\usepackage{fancyhdr}
+\usepackage{hyperref}
+\usepackage[most]{tcolorbox}
+
+\setlength{\emergencystretch}{2em}
+
+% Paleta alinhada aos slides (grafite, ardósia e âmbar)
+\definecolor{BrandDark}{HTML}{1E293B}
+\definecolor{BrandSlate}{HTML}{475569}
+\definecolor{BrandAmber}{HTML}{B45309}
+\definecolor{BrandBg}{HTML}{F8FAFC}
+\definecolor{BrandLine}{HTML}{CBD5E1}
+\definecolor{OkGreen}{HTML}{15803D}
+\definecolor{InfoBlue}{HTML}{1D4ED8}
+\definecolor{InfoBg}{HTML}{EFF6FF}
+\definecolor{DangerRed}{HTML}{B91C1C}
+
+\hypersetup{
+  colorlinks=true,
+  linkcolor=InfoBlue,
+  urlcolor=InfoBlue,
+  pdftitle={Roteiro da Apresentação Prática — Trabalho Final BD2},
+  pdfauthor={Grupo BD2 (UFPI/CSHNB)}
+}
+
+\setlength{\parindent}{0pt}
+\setlength{\parskip}{2.5pt}
+
+\pagestyle{fancy}
+\fancyhf{}
+\fancyhead[L]{\footnotesize\textcolor{BrandSlate}{\textbf{BD II (2026.2)} · Roteiro da Apresentação Prática ao Vivo}}
+\fancyhead[R]{\footnotesize\textcolor{BrandSlate}{SQL Server 2022 · \texttt{Trabalho-Final-BD2}}}
+\fancyfoot[L]{\footnotesize\textcolor{BrandSlate}{Janela Prática: 10 min (Integrantes 4 e 5)}}
+\fancyfoot[R]{\footnotesize\textcolor{BrandSlate}{Pág. \thepage}}
+\renewcommand{\headrulewidth}{0.4pt}
+\renewcommand{\footrulewidth}{0.4pt}
+
+\lstset{
+  basicstyle=\ttfamily\small\color{BrandDark},
+  backgroundcolor=\color{BrandBg},
+  frame=single,
+  rulecolor=\color{BrandLine},
+  breaklines=true,
+  breakatwhitespace=true,
+  keepspaces=true,
+  showstringspaces=false,
+  aboveskip=4pt,
+  belowskip=4pt,
+  xleftmargin=4pt,
+  xrightmargin=4pt,
+  literate={á}{{\'a}}1 {à}{{\`a}}1 {ã}{{\~a}}1 {â}{{\^a}}1 {é}{{\'e}}1 {ê}{{\^e}}1
+           {í}{{\'i}}1 {ó}{{\'o}}1 {ô}{{\^o}}1 {õ}{{\~o}}1 {ú}{{\'u}}1 {ç}{{\c{c}}}1
+           {Á}{{\'A}}1 {Ã}{{\~A}}1 {É}{{\'E}}1 {Í}{{\'I}}1 {Ó}{{\'O}}1 {Õ}{{\~O}}1
+           {Ú}{{\'U}}1 {Ç}{{\c{C}}}1 {→}{{$\rightarrow$}}1 {≥}{{$\ge$}}1
+}
+
+\newtcolorbox{passoBox}[2][InfoBlue]{
+  colback=#1!4!white,
+  colframe=#1!75!black,
+  fonttitle=\bfseries\small,
+  title={#2},
+  boxrule=0.6pt,
+  arc=3pt,
+  left=7pt,right=7pt,top=5pt,bottom=5pt
+}
+
+\newcommand{\tagTime}[1]{\colorbox{BrandDark}{\textcolor{white}{\textbf{\footnotesize\ #1\ }}}}
+\newcommand{\tagAction}[1]{\colorbox{InfoBlue}{\textcolor{white}{\textbf{\footnotesize\ #1\ }}}}
+\newcommand{\tagExpect}[1]{\colorbox{OkGreen}{\textcolor{white}{\textbf{\footnotesize\ #1\ }}}}
+
+\newcommand{\secTitle}[2]{%
+  \vspace{6pt}
+  \noindent{\large\bfseries\color{BrandDark} #1}\hfill\tagTime{#2}\par
+  \vspace{1pt}\noindent\textcolor{BrandAmber}{\rule{\linewidth}{1.1pt}}\par
+  \vspace{3pt}
+}
+
+\begin{document}
+
+% Cabeçalho Principal
+\begin{tcolorbox}[colback=BrandDark,colframe=BrandDark,arc=4pt,left=11pt,right=11pt,top=8pt,bottom=8pt]
+  {\Large\bfseries\color{white} Roteiro da Apresentação Prática — Trabalho Final BD II}\\[3pt]
+  {\small\color{BrandLine} Indexação, Análise de Planos de Execução e Otimização de Consultas no SQL Server 2022}\\[4pt]
+  {\footnotesize\color{white}
+    \textbf{Grupo:} Hermeson A., João Marcos R., Lizzandro W., Marcos W., Raildom R. \quad|\quad
+    \textbf{Orçamento Humano:} $\sim$17 min planejados ($\sim$8m Slides + $\sim$9m Prática $\le$ 20 min)
+  }
+\end{tcolorbox}
+
+\section*{0. Visão Geral e Divisão da Equipe ($\le$ 20 minutos no total)}
+A apresentação prioriza a demonstração ao vivo no VS Code + Docker, com folga realista de $\sim$3 minutos para ritmo humano, dividindo \textbf{3 integrantes nos slides} ($\sim$8m planejados, teto 10m) e \textbf{2 integrantes na prática} ($\sim$9m planejados, teto 10m):
+
+\renewcommand{\arraystretch}{1.18}
+\begin{center}
+\small
+\begin{tabularx}{\linewidth}{@{} l l c X @{}}
+\toprule
+\rowcolor{BrandBg}
+\textbf{Etapa} & \textbf{Responsável} & \textbf{Alvo (Teto)} & \textbf{Escopo e Entregáveis em Cena} \\
+\midrule
+Slides 1--3 & Integrante 1 & $\sim$2m00s (2m30s) & Capa, contexto do gargalo $O(N)$ vs. B+ Tree $O(\log_m N)$ e fundamentos teóricos \\
+Slides 4--7 & Integrante 2 & $\sim$4m00s (4m45s) & Como funciona o projeto: fluxo Docker/clone, bases gêmeas (6,25M linhas, 9 índices), Q1--Q10/W1 e reescritas sargable \\
+Slides 8--12 & Integrante 3 & $\sim$2m00s (2m45s) & Resultados de E/S lógica ($N=30$), 3 estágios Q4, ShowPlanXML, trade-offs Q7/W1/Cold, conclusão e transição \\
+\midrule
+\rowcolor{InfoBg}
+\textbf{Prática A} & \textbf{Integrante 4} & \textbf{$\sim$4m30s (5m00s)} & Tour pelo repositório/Docker, sanity check no terminal, \textbf{Demo 01 (Q1)} e \textbf{Demo 02 (Q3)} ao vivo \\
+\rowcolor{InfoBg}
+\textbf{Prática B} & \textbf{Integrante 5} & \textbf{$\sim$4m30s (5m00s)} & \textbf{Demo 03 (Q4)} + plano intermediário 3 estágios, \textbf{Demo 04 (W1)} com \texttt{ROLLBACK}, insight \textbf{Q7} e encerramento \\
+\bottomrule
+\end{tabularx}
+\end{center}
+
+\begin{passoBox}[BrandAmber]{Regra de Ouro da Bancada Prática (10 minutos)}
+Não digite código SQL nem Python durante a apresentação e nunca depure ambiente em público. Todos os arquivos e planos já existem no repositório: basta alternar entre as abas abertas na ordem e clicar em \textbf{Execute Query} (\texttt{Ctrl+Shift+E}) com \textbf{Enable Actual Plan} (\texttt{Ctrl+M}) previamente ativado.
+\end{passoBox}
+
+% ==============================================================================
+\secTitle{1. Checklist Pré-Banca (Executar 15 minutos antes)}{Pré-Voo}
+% ==============================================================================
+
+\subsection*{Passo 1 — Garantir o Docker Desktop ativo e o container saudável}
+\begin{enumerate}[leftmargin=16pt,itemsep=2pt,topsep=2pt]
+  \item Abra o \textbf{Docker Desktop} no Windows e aguarde o motor ficar ativo (\emph{Engine running}).
+  \item No terminal do VS Code ou PowerShell, na raiz \texttt{Trabalho-Final-BD2}, confirme ou suba o container \texttt{bd2\_sqlserver} (SQL Server 2022 Developer, limite 4 GB RAM, porta \texttt{127.0.0.1:1433}):
+\end{enumerate}
+\begin{lstlisting}[language=bash]
+docker compose up -d --wait
+docker ps --filter "name=bd2_sqlserver"
+\end{lstlisting}
+\tagExpect{Esperado} Status \texttt{Up ... (healthy)} mapeando \texttt{127.0.0.1:1433->1433/tcp}.
+
+\subsection*{Passo 2 — Validar conexão Python, bases gêmeas e kit de demonstração}
+Execute os dois validadores oficiais usando o ambiente virtual já configurado (\texttt{.venv}):
+\begin{lstlisting}[language=bash]
+.venv\Scripts\python.exe scripts\smoke_test.py
+.venv\Scripts\python.exe scripts\test_demo_kit.py
+\end{lstlisting}
+\emph{Nota:} em máquina com \texttt{uv} no \texttt{PATH}, execute \texttt{uv run python scripts/\allowbreak smoke\_\allowbreak test.py} e \texttt{uv run python} \texttt{scripts/\allowbreak test\_\allowbreak demo\_\allowbreak kit.py}.
+
+\begin{passoBox}[OkGreen]{Saída esperada dos dois testes}
+\begin{itemize}[leftmargin=14pt,itemsep=1pt,topsep=1pt]
+  \item \texttt{smoke\_test.py}: imprime \texttt{[OK] @@VERSION}, \texttt{has\_io=True, has\_time=True} e \texttt{[OK] Plano XML capturado com sucesso}.
+  \item \texttt{test\_demo\_kit.py}: imprime \texttt{[OK] Kit da demonstracao ao vivo validado com sucesso}, confirmando paridade de linhas (\texttt{01\_q1}: 1 linha; \texttt{02\_q3}: 3.198 linhas; \texttt{03\_q4}: 422 linhas; \texttt{04\_w1}: \texttt{count\_after\_rollback = 4500000}) e os operadores reais no XML.
+\end{itemize}
+\end{passoBox}
+
+\subsection*{Passo 3 — Abrir VS Code, perfis mssql e abas na ordem exata}
+\begin{enumerate}[leftmargin=16pt,itemsep=2pt,topsep=2pt]
+  \item Abra a pasta \texttt{Trabalho-Final-BD2} no VS Code (\texttt{code .}) e ajuste o zoom (\texttt{Ctrl++}) para projeção.
+  \item Abra os arquivos abaixo \textbf{nesta ordem exata de abas} da esquerda para a direita:
+  \begin{enumerate}[leftmargin=14pt,itemsep=1pt,topsep=1pt]
+    \item \texttt{docker-compose.yml} e \texttt{scripts/sql/04\_create\_indexes\_optimized.sql} \emph{(tour de arquitetura)}
+    \item \texttt{scripts/demo/01\_q1\_seek\_vs\_scan.sql} \emph{(Demo 1 — Q1)}
+    \item \texttt{scripts/demo/02\_q3\_indice\_composto.sql} \emph{(Demo 2 — Q3)}
+    \item \texttt{scripts/demo/03\_q4\_eliminacao\_key\_lookup.sql} \emph{(Demo 3 — Q4)}
+    \item \texttt{results/plans/optimized/q4\_intermediate\_lookup.sqlplan} \emph{(Estágio 2 de Q4)}
+    \item \texttt{scripts/demo/04\_w1\_tradeoff\_escrita.sql} \emph{(Demo 4 — W1)}
+    \item \texttt{results/plans/baseline/q7\_baseline.sqlplan} e \texttt{results/plans/optimized/q7\_optimized.sqlplan} \emph{(Insight Q7)}
+  \end{enumerate}
+  \item Em cada uma das 4 abas \texttt{.sql} de \texttt{scripts/demo/}:
+  \begin{itemize}[leftmargin=14pt,itemsep=1pt,topsep=1pt]
+    \item Conecte pelo perfil salvo em \texttt{.vscode/settings.json}: \textbf{\texttt{BD2 - Ecommerce\_Baseline}} (\texttt{127.0.0.1,1433}, usuário \texttt{sa}, \texttt{trustServerCertificate: true}; senha padrão: \texttt{Bd2Trabalho!2026}, solicitada na 1ª conexão pois \texttt{savePassword: false}). Como cada script alterna \texttt{USE Ecommerce\_Baseline;} e \texttt{USE Ecommerce\_Otimizado;}, a mesma aba percorre as duas bases.
+    \item \textbf{CRÍTICO:} Ative \textbf{Enable Actual Plan} (ícone no topo direito do editor ou \texttt{Ctrl+M}) em \textbf{cada uma das 4 abas} \texttt{01..04}.
+  \end{itemize}
+\end{enumerate}
+
+% ==============================================================================
+\secTitle{2. Roteiro do Integrante 4 — Arquitetura + Demos Q1 e Q3}{00:00 -- 04:30 (teto 05:00)}
+% ==============================================================================
+
+\subsection*{Bloco 4.1 — Infraestrutura, Bases Gêmeas e 9 Índices (00:00 -- 01:30)}
+\tagAction{Onde ir} Painel \emph{Explorer} $\rightarrow$ \texttt{docker-compose.yml} $\rightarrow$ \texttt{scripts/sql/\allowbreak 04\_create\_indexes\_optimized.sql} $\rightarrow$ terminal (\texttt{Ctrl+'}).
+
+\begin{enumerate}[leftmargin=16pt,itemsep=2pt,topsep=2pt]
+  \item \textbf{Em \texttt{docker-compose.yml}:} aponte \texttt{image: mcr.microsoft.com/\allowbreak mssql/\allowbreak server:2022-latest}, \texttt{container\_\allowbreak name: bd2\_sqlserver} e \texttt{mem\_limit: 4g}. Explique o limite controlado de 4 GB de RAM.
+  \item \textbf{Em \texttt{04\_create\_indexes\_optimized.sql}:} role mostrando que \texttt{Ecommerce\_Baseline} mantém \textbf{zero índices secundários} (apenas 4 PKs clusterizadas), enquanto \texttt{Ecommerce\_Otimizado} cria os \textbf{9 índices}:
+  \begin{itemize}[leftmargin=14pt,itemsep=1pt,topsep=1pt]
+    \item Linhas 36--45: índice composto \texttt{IX\_Pedidos\_\allowbreak Status\_\allowbreak Data} \texttt{(Status, DataPedido)} e cobridor \texttt{IX\_Pedidos\_\allowbreak ClienteID\_\allowbreak Cov} com \texttt{INCLUDE (DataPedido, ValorTotal)}.
+    \item Linhas 63--68: índice filtrado \texttt{IX\_ItensPedido\_\allowbreak Desconto\_Alto} (\texttt{WHERE Desconto >= 10.00}) e estatísticas com \texttt{EXEC sp\_\allowbreak updatestats}.
+  \end{itemize}
+  \item \textbf{No terminal (\texttt{Ctrl+'}) — ponto de corte opcional:} rode os comandos curtos abaixo (\emph{se os slides passarem de 9 min, pule o \texttt{smoke\_test.py} e siga direto ao Demo 01}):
+\begin{lstlisting}[language=bash]
+docker ps --filter "name=bd2_sqlserver"
+.venv\Scripts\python.exe scripts\smoke_test.py
+\end{lstlisting}
+  \tagExpect{O que aparece} Container \texttt{bd2\_sqlserver} como \texttt{healthy} e Python exibindo \texttt{[OK] @@VERSION} (SQL Server 2022 RTM-CU28), \texttt{has\_io=True, has\_time=True} e \texttt{Plano XML capturado}.
+\end{enumerate}
+
+\textbf{O que falar (resumo):} \emph{``Clonamos exatamente 6,25 milhões de linhas via BACKUP/RESTORE entre Baseline e Otimizado. O container tem teto de 4 GB de RAM e todas as consultas usam \texttt{OPTION (MAXDOP 1)} para isolar o efeito real dos índices em E/S e operadores.''}
+
+\subsection*{Bloco 4.2 — Demo 01 (Q1): Clustered Index Scan vs. Index Seek + Lookup (01:30 -- 03:00)}
+\tagAction{Onde ir} Aba \texttt{scripts/demo/01\_q1\_seek\_vs\_scan.sql}. Confirme \textbf{Enable Actual Plan} (\texttt{Ctrl+M}) e clique em \textbf{Execute Query} (\texttt{Ctrl+Shift+E}).
+
+\begin{itemize}[leftmargin=14pt,itemsep=1.5pt,topsep=2pt]
+  \item \textbf{O que o script faz:} ativa \texttt{SET STATISTICS IO, TIME ON;} e busca \texttt{Email = 'cliente\_\allowbreak 125432@exemplo.com.br'} em \texttt{Ecommerce\_Baseline} e depois em \texttt{Ecommerce\_Otimizado}.
+  \item \textbf{Aba \emph{Results}:} mostre os dois grids — ambos retornam exatamente \textbf{1 linha}.
+  \item \textbf{Aba \emph{Messages}:} aponte a contagem de páginas em \texttt{Clientes}:
+  \begin{itemize}[leftmargin=14pt,itemsep=1pt,topsep=1pt]
+    \item \textbf{Baseline:} \texttt{logical reads 2856} (mediana Warm: 15,0 ms).
+    \item \textbf{Otimizado:} \texttt{logical reads 6} (\textbf{$-$99,79\% de E/S}, tempo $<1$ ms).
+  \end{itemize}
+  \item \textbf{Aba \emph{Query Plan}:} compare os dois diagramas:
+  \begin{itemize}[leftmargin=14pt,itemsep=1pt,topsep=1pt]
+    \item \textbf{Plano 1 (Baseline):} \texttt{Clustered Index Scan} em \texttt{PK\_Clientes} varrendo toda a tabela ($O(N)$).
+    \item \textbf{Plano 2 (Otimizado):} \texttt{Index Seek} em \texttt{IX\_Clientes\_Email} + \texttt{Key Lookup} em \texttt{PK\_Clientes} via \texttt{Nested Loops} para trazer \texttt{Nome, Cidade, Estado}.
+  \end{itemize}
+\end{itemize}
+
+\textbf{Gancho de transição:} \emph{``Como Q1 retorna 1 linha, 1 Key Lookup custa apenas 6 leituras. Veremos agora um índice composto sem lookup e, depois, o que ocorre quando o Lookup repete 422 vezes.''}
+
+\subsection*{Bloco 4.3 — Demo 02 (Q3): Índice Composto (Status, DataPedido) (03:00 -- 04:30)}
+\tagAction{Onde ir} Aba \texttt{scripts/demo/02\_q3\_indice\_composto.sql}. Confirme \texttt{Ctrl+M} ligado e clique em \textbf{Execute Query}.
+
+\begin{itemize}[leftmargin=14pt,itemsep=1.5pt,topsep=2pt]
+  \item \textbf{O que o script faz:} filtra \texttt{Status = 'ENTREGUE'} (igualdade) e janela de 7 dias em \texttt{DataPedido} (\texttt{>= '2026-10-25'} e \texttt{< '2026-11-01'}), projetando \texttt{PedidoID, Status, DataPedido}.
+  \item \textbf{Aba \emph{Results}:} confirme que ambos os bancos retornam exatamente \textbf{3.198 linhas}.
+  \item \textbf{Aba \emph{Messages}:} aponte os números na tabela \texttt{Pedidos}:
+  \begin{itemize}[leftmargin=14pt,itemsep=1pt,topsep=1pt]
+    \item \textbf{Baseline:} \texttt{logical reads 8090} (mediana Warm: 87,0 ms).
+    \item \textbf{Otimizado:} \texttt{logical reads 17} (\textbf{$-$99,79\% de E/S}, mediana 1,0 ms; speedup 87$\times$).
+  \end{itemize}
+  \item \textbf{Aba \emph{Query Plan}:} destaque no Otimizado o operador único \texttt{Index Seek} em \texttt{IX\_Pedidos\_Status\_Data}, \textbf{sem Key Lookup}.
+  \item \textbf{Passagem para Integrante 5:} \emph{``Com igualdade à esquerda e faixa à direita no índice composto, a janela fica contígua na B+ Tree e a PK PedidoID já está na folha. Passo agora ao Integrante 5 para mostrar Q4 e o trade-off de escrita.''}
+\end{itemize}
+
+% ==============================================================================
+\secTitle{3. Roteiro do Integrante 5 — Demos Q4, W1 e Insight Q7}{04:30 -- 09:00 (teto 10:00)}
+% ==============================================================================
+
+\subsection*{Bloco 5.1 — Demo 03 (Q4): Key Lookup e Eliminação em 3 Estágios (04:30 -- 06:10)}
+\tagAction{Onde ir} Aba \texttt{scripts/demo/03\_q4\_eliminacao\_key\_lookup.sql} (\texttt{Ctrl+M} ligado) $\rightarrow$ depois aba \texttt{results/plans/\allowbreak optimized/\allowbreak q4\_intermediate\_lookup.sqlplan}.
+
+\begin{enumerate}[leftmargin=16pt,itemsep=2pt,topsep=2pt]
+  \item \textbf{Execução ao vivo (\texttt{03\_q4\_eliminacao\_key\_lookup.sql}):} consulta pedidos de \texttt{ClienteID BETWEEN 1000 AND 1050}, retornando \textbf{422 linhas}.
+  \begin{itemize}[leftmargin=14pt,itemsep=1pt,topsep=1pt]
+    \item \textbf{Messages:} Baseline lê \textbf{8.090 páginas} (111,0 ms mediano); Otimizado com \texttt{IX\_Pedidos\_\allowbreak ClienteID\_Cov INCLUDE (DataPedido, ValorTotal)} cai para apenas \textbf{5 páginas} (\textbf{$-$99,94\% de E/S}, tempo $<1$ ms).
+    \item \textbf{Query Plan ao vivo:} contrasta \texttt{Clustered Index Scan} vs. \texttt{Index Seek} puro cobrindo toda a consulta.
+  \end{itemize}
+  \item \textbf{Evidência do estágio intermediário (abrir \texttt{q4\_intermediate\_lookup.sqlplan}):}
+  \begin{itemize}[leftmargin=14pt,itemsep=1pt,topsep=1pt]
+    \item Mostre o plano real capturado \emph{antes} da cláusula \texttt{INCLUDE}: há \texttt{Index Seek} barato (\texttt{0,0037} est.) unido via \texttt{Nested Loops} a um \texttt{Key Lookup} (\texttt{Clustered Index Seek}) que consome \texttt{1,2767} do custo total \texttt{1,2821} (\textbf{$\approx$99,6\% do custo}).
+    \item Recapitule a escada em 3 estágios: \textbf{8.090 págs (111 ms)} $\rightarrow$ \textbf{1.296 págs com 422 lookups (1 ms)} $\rightarrow$ \textbf{5 págs sem lookup ($<$1 ms)}.
+  \end{itemize}
+\end{enumerate}
+
+\subsection*{Bloco 5.2 — Demo 04 (W1): Amplificação de Escrita OLTP Segura (06:10 -- 07:50)}
+\tagAction{Onde ir} Aba \texttt{scripts/demo/04\_w1\_tradeoff\_escrita.sql}. Confirme \texttt{Ctrl+M} ativo e clique em \textbf{Execute Query}.
+
+\begin{passoBox}[InfoBlue]{Segurança da execução ao vivo}
+Explique antes de rodar que cada \texttt{INSERT} de \textbf{10.000 itens} em \texttt{ItensPedido} executa isolado dentro de \texttt{BEGIN TRANSACTION ... ROLLBACK TRANSACTION} seguido de \texttt{SELECT COUNT(*)}. A base permanece intacta com \textbf{4.500.000 linhas}.
+\end{passoBox}
+
+\begin{itemize}[leftmargin=14pt,itemsep=1.5pt,topsep=2pt]
+  \item \textbf{Aba \emph{Results}:} mostre \texttt{TotalItensBaseline\allowbreak AposRollback = 4500000} e \texttt{TotalItensOtimizado\allowbreak AposRollback = 4500000}.
+  \item \textbf{Aba \emph{Messages}:} aponte o salto de E/S ao manter múltiplos índices na escrita:
+  \begin{itemize}[leftmargin=14pt,itemsep=1pt,topsep=1pt]
+    \item Na captura inicial (\texttt{baseline\_initial.json} vs. \texttt{optimized\_initial.json}), \texttt{ItensPedido} saltou de \textbf{38.111} para \textbf{108.122} páginas e a operação total de \textbf{97.154} para \textbf{180.056} páginas (conforme o estado de cache ao vivo, \texttt{Messages} exibe salto semelhante na casa de dezenas de milhares de páginas; na mediana $N=30$ Warm foi \textbf{97.154 $\rightarrow$ 180.057 págs}, \textbf{+85,33\%}, chegando a \textbf{+264,73\%} e \textbf{1.098,5 ms} em Cold Cache).
+  \end{itemize}
+  \item \textbf{Aba \emph{Query Plan}:} contraste \texttt{Clustered Index Insert} único (Baseline) contra o operador \texttt{Sequence} (Otimizado) ramificando a escrita síncrona em \textbf{4 árvores B+} (\texttt{PK\_ItensPedido}, \texttt{IX\_ItensPedido\_\allowbreak PedidoID}, \texttt{IX\_ItensPedido\_ProdutoID} e índice filtrado \texttt{IX\_ItensPedido\_\allowbreak Desconto\_Alto WHERE Desconto >= 10.00}).
+\end{itemize}
+
+\subsection*{Bloco 5.3 — Insight Q7 (Batch vs. Row Mode), Reprodutibilidade e Fecho (07:50 -- 09:00)}
+{\raggedright\tagAction{Onde ir} Abas \texttt{results/plans/baseline/q7\_baseline.sqlplan} e \texttt{results/plans/optimized/q7\_optimized.sqlplan}; depois Explorer em \texttt{scripts/}.\par}
+
+\begin{enumerate}[leftmargin=16pt,itemsep=2pt,topsep=2pt]
+  \item \textbf{Comparação rápida do caso Q7 (\texttt{GROUP BY Status} em 1,5M pedidos) — ajuste de tempo:} \emph{se restar menos de 45s para o teto de 20 min, resuma oralmente sem abrir os \texttt{.sqlplan}}.
+  \begin{itemize}[leftmargin=14pt,itemsep=1pt,topsep=1pt]
+    \item Em \texttt{q7\_baseline.sqlplan} (custo est. \texttt{12,6401}), aponte \texttt{Clustered Index Scan} $\rightarrow$ \texttt{Hash Match (Aggregate)}. Passe o mouse ou abra \emph{Properties} (\texttt{ActualExecutionMode}): ambos operam em \textbf{Batch Mode}. Mediana Warm: \textbf{217,0 ms} (8.090 págs).
+    \item Em \texttt{q7\_optimized.sqlplan} (custo est. \texttt{6,7281}), aponte \texttt{Index Scan} em \texttt{IX\_Pedidos\_Status\_Cov} $\rightarrow$ \texttt{Stream Aggregate}. Mesmo lendo 30\% menos páginas (\textbf{5.658 págs}), cai para \textbf{Row Mode} (\texttt{ActualExecutionMode} igual a \texttt{"Row"}) e sobe para \textbf{364,0 ms} (\textbf{0,60$\times$}, $p=1{,}73\times 10^{-6}$).
+  \end{itemize}
+  \item \textbf{Reprodutibilidade:} aponte no Explorer que \texttt{scripts/\allowbreak run\_benchmarks.py} executa as 880 rodadas (Warm $N=30$ e Cold $N=10$ com \texttt{DROPCLEANBUFFERS} e \texttt{FREEPROCCACHE}) e \texttt{scripts/\allowbreak analyze\_results.py} aplica Shapiro-Wilk ($\alpha=0{,}05$) seguido do teste $t$ de Student pareado ou Wilcoxon pareado em \texttt{results/\allowbreak summary\_table.csv}.
+  \item \textbf{Encerramento:} \emph{``Cobrimos da modelagem aos planos físicos reais no SQL Server 2022. Estamos à disposição da banca para perguntas.''}
+\end{enumerate}
+
+% ==============================================================================
+\secTitle{4. Planos de Contingência (B e C) e Q\&A}{Contingência}
+% ==============================================================================
+
+\begin{passoBox}[DangerRed]{Plano B — Falha no Docker ou conexão mssql durante a apresentação}
+\textbf{Nunca depure em público.} Feche o terminal com erro e mostre diretamente os planos XML reais versionados no repositório, abrindo os pares lado a lado no VS Code:
+\begin{itemize}[leftmargin=14pt,itemsep=1pt,topsep=1pt,before=\raggedright]
+  \item \textbf{Q1:} \texttt{results/plans/baseline/q1\_baseline.sqlplan} $\leftrightarrow$ \texttt{results/plans/optimized/q1\_optimized.sqlplan}
+  \item \textbf{Q3:} \texttt{results/plans/baseline/q3\_baseline.sqlplan} $\leftrightarrow$ \texttt{results/plans/optimized/q3\_optimized.sqlplan}
+  \item \textbf{Q4 (3 estágios):} \texttt{q4\_baseline.sqlplan} $\rightarrow$ \texttt{q4\_intermediate\_lookup.sqlplan} $\rightarrow$ \texttt{q4\_optimized.sqlplan}
+  \item \textbf{Q7 e W1:} \texttt{q7\_baseline.sqlplan} vs. \texttt{q7\_optimized.sqlplan} e \texttt{w1\_baseline.sqlplan} vs. \texttt{w1\_optimized.sqlplan}
+  \item \textbf{Tabela completa:} \texttt{results/summary\_table.csv} (medianas, médias, desvios e p-valores).
+\end{itemize}
+\end{passoBox}
+
+\textbf{Plano C — Vídeo de Contingência em MP4 (Ação da Equipe Pré-Banca):} antes de 18--19/11/2026, gravar em tela cheia (OBS Studio ou \texttt{Win+Alt+R}) uma execução contínua ($\sim$4m30s) dos scripts \texttt{01..04} mostrando \emph{Actual Plan} e aba \emph{Messages}, salvando como \texttt{slides/demo\_backup\_local.mp4} (backup manual a ser gravado antes da banca; ainda não existe no diretório \texttt{slides/}).
+
+\subsection*{Respostas Rápidas para Possíveis Perguntas da Banca}
+\begin{center}
+\small
+\renewcommand{\arraystretch}{1.15}
+\begin{tabularx}{\linewidth}{@{} p{4.6cm} X @{}}
+\toprule
+\rowcolor{BrandBg}
+\textbf{Pergunta Provável} & \textbf{Resposta Técnica Baseada no Experimento} \\
+\midrule
+Por que usar \texttt{OPTION (MAXDOP 1)}? & Evita variação de threads em consultas paralelas no container de 4 GB RAM, isolando o efeito estrutural dos índices sobre E/S lógica e escolha de operadores. \\
+Por que o literal \texttt{N'...'} em Q8? & A coluna \texttt{Produtos.Nome} é \texttt{NVARCHAR(150)}; usar literal \texttt{VARCHAR} causaria conversão implícita e impediria o \emph{Index Seek} mesmo sem curinga inicial. \\
+Por que W1 sofre mais em Cold Cache? & Com o buffer pool limpo, ler e atualizar nós das 4 árvores B+ exige leituras físicas aleatórias, levando a inserção de 502,0 ms para 1.098,5 ms (+264,73\% em E/S). \\
+Limitações do estudo? & Volume inicial de ~400 MB cabe no buffer pool de 4 GB (mitigado pelos testes Cold), execução \emph{single-thread} controlada e instância única Docker sem concorrência simultânea. \\
+\bottomrule
+\end{tabularx}
+\end{center}
+
+\end{document}

@@ -1,0 +1,223 @@
+\documentclass[10pt,a4paper]{article}
+
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage[brazilian]{babel}
+\usepackage[a4paper,top=1.25cm,bottom=1.35cm,left=1.5cm,right=1.5cm,headheight=13pt]{geometry}
+\usepackage{xcolor}
+\usepackage{enumitem}
+\usepackage{listings}
+\usepackage{fancyhdr}
+\usepackage{hyperref}
+\usepackage[most]{tcolorbox}
+
+\setlength{\emergencystretch}{2em}
+
+\definecolor{BrandDark}{HTML}{1E293B}
+\definecolor{BrandSlate}{HTML}{475569}
+\definecolor{BrandAmber}{HTML}{B45309}
+\definecolor{BrandBg}{HTML}{F8FAFC}
+\definecolor{BrandLine}{HTML}{CBD5E1}
+\definecolor{OkGreen}{HTML}{15803D}
+\definecolor{InfoBlue}{HTML}{1D4ED8}
+
+\hypersetup{
+  colorlinks=true,
+  linkcolor=InfoBlue,
+  urlcolor=InfoBlue,
+  pdftitle={Roteiro Explicativo — Integrante 2 (Slides 4 a 7)},
+  pdfauthor={Grupo BD2 (UFPI/CSHNB)}
+}
+
+\setlength{\parindent}{0pt}
+\setlength{\parskip}{3pt}
+
+\pagestyle{fancy}
+\fancyhf{}
+\fancyhead[L]{\footnotesize\textcolor{BrandSlate}{\textbf{BD II (2026.2)} · Guia Individual do Apresentador}}
+\fancyhead[R]{\footnotesize\textcolor{BrandSlate}{\textbf{Integrante 2} (Slides 4--7)}}
+\fancyfoot[L]{\footnotesize\textcolor{BrandSlate}{Orçamento humano alvo: $\sim$4m00s (teto máximo: 4m45s)}}
+\fancyfoot[R]{\footnotesize\textcolor{BrandSlate}{Pág. \thepage}}
+\renewcommand{\headrulewidth}{0.4pt}
+\renewcommand{\footrulewidth}{0.4pt}
+
+\lstset{
+  basicstyle=\ttfamily\small\color{BrandDark},
+  backgroundcolor=\color{BrandBg},
+  frame=single,
+  rulecolor=\color{BrandLine},
+  breaklines=true,
+  keepspaces=true,
+  showstringspaces=false,
+  aboveskip=3pt,
+  belowskip=3pt
+}
+
+\newcommand{\tagTime}[1]{\colorbox{BrandDark}{\textcolor{white}{\textbf{\footnotesize\ #1\ }}}}
+
+\newcommand{\slideHeader}[3]{%
+  \noindent{\Large\bfseries\color{BrandDark} Slide #1 — #2}\hfill\tagTime{Alvo: #3}\par
+  \vspace{2pt}\noindent\textcolor{BrandAmber}{\rule{\linewidth}{1.3pt}}\par
+  \vspace{4pt}
+}
+
+\newtcolorbox{telaBox}[1][O que aparece neste slide no Canva]{
+  colback=BrandBg,
+  colframe=BrandSlate!60!black,
+  fonttitle=\bfseries\small,
+  title={#1},
+  boxrule=0.6pt,
+  arc=3pt,
+  left=8pt,right=8pt,top=5pt,bottom=5pt
+}
+
+\newtcolorbox{falaBox}[1][Fala sugerida (leitura natural em voz alta)]{
+  colback=InfoBlue!4!white,
+  colframe=InfoBlue!75!black,
+  fonttitle=\bfseries\small,
+  title={#1},
+  boxrule=0.8pt,
+  arc=3pt,
+  left=9pt,right=9pt,top=6pt,bottom=6pt
+}
+
+\newtcolorbox{expBox}[1][Explicação em tópicos das informações da fala (cola técnica para o apresentador)]{
+  colback=OkGreen!4!white,
+  colframe=OkGreen!75!black,
+  fonttitle=\bfseries\small,
+  title={#1},
+  boxrule=0.7pt,
+  arc=3pt,
+  left=8pt,right=8pt,top=6pt,bottom=6pt
+}
+
+\begin{document}
+
+\begin{tcolorbox}[colback=BrandDark,colframe=BrandDark,arc=4pt,left=11pt,right=11pt,top=8pt,bottom=8pt]
+  {\Large\bfseries\color{white} Roteiro Explicativo — Integrante 2 (Slides 4 a 7)}\\[3pt]
+  {\small\color{BrandLine} Como Funciona o Projeto: Fluxo Experimental, Esquema B2C, Carga Q1--Q10/W1 e Sargabilidade}\\[4pt]
+  {\footnotesize\color{white}
+    \textbf{Tempo alvo:} $\sim$4m00s \quad|\quad
+    \textbf{Teto:} 4m45s \quad|\quad
+    \textbf{Recebe de:} Integrante 1 \quad|\quad
+    \textbf{Passa para:} Integrante 3 (Slide 8)
+  }
+\end{tcolorbox}
+
+\vspace{4pt}
+{\small\color{BrandSlate}\textbf{Regra desta folha:} \textbf{um único slide por página}, trazendo a fala completa e os tópicos de apoio técnico logo abaixo. Esta parte corresponde à metade central dos slides (~50\%), explicando como o projeto funciona por dentro.}
+
+\vspace{6pt}
+
+% ==============================================================================
+% SLIDE 4
+% ==============================================================================
+\slideHeader{4}{Como o Projeto Funciona (Fluxo em 4 Etapas)}{$\sim$0m55s}
+
+\begin{telaBox}
+  \begin{itemize}[leftmargin=14pt,itemsep=1pt,topsep=1pt]
+    \item \textbf{Fluxograma superior:} \texttt{1. Base Seed 42 (6,25M linhas)} $\rightarrow$ \texttt{2. Clone Gêmeo (BACKUP/RESTORE)} $\rightarrow$ \texttt{3. 9 Índices B+ (Base Otimizada)} $\rightarrow$ \texttt{4. Benchmark (880 execuções)}.
+    \item \textbf{4 pontos abaixo:} Container SQL Server 2022 (CU28, 4 GB RAM); paridade de 12 estatísticas e FKs confiáveis (\texttt{is\_not\_trusted = 0}); orquestração Python (\texttt{pymssql}) com \texttt{MAXDOP 1}; e \texttt{ROLLBACK} na escrita \texttt{W1}.
+  \end{itemize}
+\end{telaBox}
+
+\begin{falaBox}
+``Como o projeto funciona na prática? Nós construímos um experimento totalmente reprodutível em quatro etapas. Primeiro, subimos o Microsoft SQL Server 2022 em container Docker no Ubuntu, travado com limite de 4 gigabytes de memória RAM sobre host Windows 11 com SSD, e geramos de forma determinística, com \emph{seed} 42, 6,25 milhões de registros no banco \texttt{Ecommerce\_Baseline}. Em seguida, fazemos o clone exato por \texttt{BACKUP} e \texttt{RESTORE} para criar a base gêmea \texttt{Ecommerce\_Otimizado}, garantindo que ambas comecem com estatísticas e chaves estrangeiras idênticas. No terceiro passo, aplicamos os nove índices secundários somente na base Otimizada. Por fim, um orquestrador em Python via \texttt{pymssql} executa 880 medições pareadas sob \texttt{MAXDOP 1}, capturando direto do motor as leituras de E/S, os tempos e os planos XML reais, enquanto a carga de escrita \texttt{W1} roda dentro de \texttt{BEGIN TRAN ... ROLLBACK} para manter os dados intactos.''
+\end{falaBox}
+
+\begin{expBox}
+  \begin{itemize}[leftmargin=14pt,itemsep=2pt,topsep=1pt]
+    \item \textbf{Por que usar Docker limitado a 4 GB de RAM?} Evita interferência de configurações locais de cada máquina e restringe a memória de cache (\emph{buffer pool}) em comparação aos 15,71 GB do host, tornando o experimento portátil e reprodutível (SQL Server 2022 RTM-CU28, Developer 64-bit, modelo de recuperação \texttt{SIMPLE}).
+    \item \textbf{Por que clonar via \texttt{BACKUP/RESTORE} em vez de rodar o gerador duas vezes?} Porque garante \emph{paridade binária}: exatamente os mesmos 6.250.000 registros (\emph{seed} 42), as 12 estatísticas iniciais e integridade referencial confiável verificada em catálogo (\texttt{is\_not\_trusted = 0}), evitando que o otimizador tenha planos diferentes por desvio de amostragem.
+    \item \textbf{Por que fixar \texttt{OPTION (MAXDOP 1)} em todas as consultas?} \emph{MAXDOP 1} força execução \emph{single-thread}. Em container com CPU limitada, paralelismo pode variar entre rodadas conforme o escalonador do SO e mascarar o ganho estrutural de cada índice e operador físico.
+    \item \textbf{De onde vem o número ``880 execuções''?} Temos 11 cargas ($Q_1$--$Q_{10}$ e $W_1$) $\times$ 2 bases (Baseline e Otimizada) $\times$ (30 rodadas \emph{Warm Cache} $+$ 10 rodadas \emph{Cold Cache}) $= 22 \times 40 = 880$ execuções válidas medidas (sem contar os aquecimentos descartados).
+  \end{itemize}
+\end{expBox}
+
+\clearpage
+
+% ==============================================================================
+% SLIDE 5
+% ==============================================================================
+\slideHeader{5}{Bases Gêmeas e Esquema Relacional B2C}{$\sim$1m00s}
+
+\begin{telaBox}
+  \begin{itemize}[leftmargin=14pt,itemsep=1pt,topsep=1pt]
+    \item \textbf{Tabela $4\times 5$:} \texttt{Clientes} (200.000), \texttt{Produtos} (50.000), \texttt{Pedidos} (1.500.000) e \texttt{ItensPedido} (4.500.000), contrastando \texttt{Ecommerce\_Baseline} (apenas 4 PKs) vs. \texttt{Ecommerce\_Otimizado} ($+9$ índices secundários).
+  \end{itemize}
+\end{telaBox}
+
+\begin{falaBox}
+``O esquema modela um e-commerce B2C normalizado distribuído em quatro tabelas: \texttt{Clientes}, com 200 mil linhas; \texttt{Produtos}, com 50 mil; \texttt{Pedidos}, com 1,5 milhão; e \texttt{ItensPedido}, com 4,5 milhões — fechando 6,25 milhões de tuplas e cerca de 400 megabytes alocados. A tabela na tela mostra a diferença cirúrgica entre as duas bases gêmeas. No \texttt{Ecommerce\_Baseline}, deixamos estritamente as quatro chaves primárias clusterizadas e zero índices secundários. Já no \texttt{Ecommerce\_Otimizado}, adicionamos exatamente nove índices secundários estratégicos e atualizamos 100\% das estatísticas: um em \texttt{Clientes} por e-mail; um cobridor em \texttt{Produtos} por nome; quatro em \texttt{Pedidos} — cobrindo data, chave composta \texttt{Status + Data}, \texttt{ClienteID} e \texttt{Status} — e três em \texttt{ItensPedido}, incluindo um índice filtrado apenas para itens com desconto maior ou igual a 10.''
+\end{falaBox}
+
+\begin{expBox}
+  \begin{itemize}[leftmargin=14pt,itemsep=2pt,topsep=1pt]
+    \item \textbf{Distribuição exata das 4 tabelas (\emph{seed} 42):}
+      \texttt{Clientes} (200k), \texttt{Produtos} (50k), \texttt{Pedidos} (1,5M) e \texttt{ItensPedido} (4,5M) = \textbf{6.250.000 registros} (400 MB alocados: 259.064 KB dados / 272.216 KB reservados).
+    \item \textbf{Os 9 índices secundários do cenário Otimizado (amostragem estatística de 100\%):}
+      \begin{itemize}[leftmargin=12pt,itemsep=1pt]
+        \item \texttt{Clientes}: \texttt{IX\_Clientes\_Email} (simples, alvo $Q_1$).
+        \item \texttt{Produtos}: \texttt{IX\_Produtos\_Nome INCLUDE (Categoria, Preco)} (alvo $Q_8$).
+        \item \texttt{Pedidos}: \texttt{IX\_Pedidos\_DataPedido INCLUDE (ClienteID, Status, ValorTotal)} ($Q_2, Q_6, Q_9$); composto \texttt{IX\_Pedidos\_Status\_Data (Status, DataPedido)} ($Q_3$); \texttt{IX\_Pedidos\_ClienteID\_Cov INCLUDE (DataPedido, ValorTotal)} ($Q_4, Q_5, Q_{10}$); \texttt{IX\_Pedidos\_Status\_Cov INCLUDE (ValorTotal)} ($Q_7$).
+        \item \texttt{ItensPedido}: \texttt{IX\_ItensPedido\_PedidoID INCLUDE (ProdutoID, Quantidade, PrecoUnitario)} ($Q_5, W_1$); \texttt{IX\_ItensPedido\_ProdutoID} ($W_1$); filtrado \texttt{IX\_ItensPedido\_Desconto\_Alto (ProdutoID, Desconto) WHERE Desconto >= 10.00} (cobre 901.180 linhas, $\approx 20\%$ da tabela).
+      \end{itemize}
+    \item \textbf{Por que esse desenho testa os dois lados da moeda?} Porque enquanto \texttt{Pedidos} ganha índices sob medida para leitura, \texttt{ItensPedido} acumula 4 B+ Trees (PK + 3 secundários) que precisam ser mantidas juntas quando rodamos inserções em \texttt{W1}.
+  \end{itemize}
+\end{expBox}
+
+\clearpage
+
+% ==============================================================================
+% SLIDE 6
+% ==============================================================================
+\slideHeader{6}{Suíte Experimental (Q1--Q10 e W1)}{$\sim$1m05s}
+
+\begin{telaBox}
+  \begin{itemize}[leftmargin=14pt,itemsep=1pt,topsep=1pt]
+    \item \textbf{Tabela agrupada ($3\times 8$):} 7 grupos cobrindo todas as 11 cargas: \texttt{Q1--Q2}, \texttt{Q3}, \texttt{Q4}, \texttt{Q5 e Q10}, \texttt{Q6}, \texttt{Q8 e Q9}, e \texttt{Q7 e W1}.
+  \end{itemize}
+\end{telaBox}
+
+\begin{falaBox}
+``Nossa carga de trabalho reúne dez consultas de leitura, de Q1 a Q10, além da escrita em lote W1, projetadas para testar cada fenômeno estudado na disciplina. Em Q1 e Q2 avaliamos busca pontual por e-mail e faixa restrita de datas. Em Q3 testamos um índice composto combinando igualdade em \texttt{Status} com intervalo em \texttt{DataPedido}. Em Q4 isolamos um estudo em três estágios para mostrar como o \texttt{INCLUDE} elimina 422 \emph{Key Lookups}. Em Q5 e Q10 entramos em junções de três tabelas e na troca de subconsulta correlacionada por \texttt{NOT EXISTS}. Q6 pede o \texttt{TOP 50} pedidos mais recentes em ordem decrescente, mostrando como uma leitura reversa no índice dispensa o operador \emph{Sort}. Q8 e Q9 atacam falhas clássicas de sargabilidade em texto e data. Por fim, Q7 agrega o faturamento de 1,5 milhão de pedidos e W1 insere 10 mil itens para medir custo de escrita.''
+\end{falaBox}
+
+\begin{expBox}
+  \begin{itemize}[leftmargin=14pt,itemsep=2pt,topsep=1pt]
+    \item \textbf{Tamanhos exatos de retorno (\emph{row\_count}) em cada carga:}
+      $Q_1$ = 1 linha; $Q_2$ = 6.028; $Q_3$ = 3.198; $Q_4$ = 422; $Q_5$ = 4.965; $Q_6$ = 50; $Q_7$ = 6 grupos (\emph{Status}); $Q_8$ = 2.002 produtos \texttt{Notebook}; $Q_9$ = 1 linha (\texttt{COUNT(*)}); $Q_{10}$ = 10.060 clientes sem pedido; $W_1$ = 10.000 linhas inseridas (revertidas via \texttt{ROLLBACK}).
+    \item \textbf{O que muda em Q5 e Q6 especificamente?}
+      Em $Q_5$ (junção \texttt{Clientes} $\bowtie$ \texttt{Pedidos} $\bowtie$ \texttt{ItensPedido}), o Baseline usa dois \emph{Hash Match} caros; o Otimizado troca por \emph{Merge Join} + \emph{Nested Loops}. Em $Q_6$ (\texttt{ORDER BY DataPedido DESC}), o índice em \texttt{DataPedido} já está ordenado na folha, permitindo \emph{Backward Scan} de apenas 50 entradas sem ordenar a tabela inteira (\emph{Top N Sort}).
+    \item \textbf{Regra de integridade na validação:} Todas as 880 medições verificaram paridade exata de \texttt{row\_count} entre Baseline e Otimizado para assegurar equivalência de resultados.
+  \end{itemize}
+\end{expBox}
+
+\clearpage
+
+% ==============================================================================
+% SLIDE 7
+% ==============================================================================
+\slideHeader{7}{Reescritas Sargable e Protocolo Estatístico}{$\sim$1m00s}
+
+\begin{telaBox}
+  \begin{itemize}[leftmargin=14pt,itemsep=1pt,topsep=1pt]
+    \item \textbf{Quadro SQL real:} mostra as 3 reescritas ($Q_8$: \texttt{N'\%Notebook\%'} $\rightarrow$ \texttt{N'Notebook\%'}; $Q_9$: \texttt{YEAR(DataPedido)=2025} $\rightarrow$ intervalo \texttt{>=..<}; $Q_{10}$: \texttt{NOT EXISTS}).
+    \item \textbf{Legenda inferior:} Protocolo pareado Warm ($N=30$, +2 aquecimentos), Cold ($N=10$ com \texttt{DROPCLEANBUFFERS} e \texttt{FREEPROCCACHE}), Shapiro-Wilk ($\alpha=0{,}05$) $\rightarrow$ $t$-Student ou Wilcoxon pareado.
+  \end{itemize}
+\end{telaBox}
+
+\begin{falaBox}
+``Neste slide temos os códigos reais de reescrita sargable e nosso protocolo estatístico. Em Q8, o curinga percentual no início da string impede navegar pela árvore B+; trocando para busca por prefixo com literal \texttt{N'} — já que \texttt{Nome} é \texttt{NVARCHAR} — habilitamos o \emph{Index Seek}, com a ressalva semântica de que isso vale quando o catálogo segue taxonomia padronizada por categoria. Em Q9, aplicar \texttt{YEAR(DataPedido)} força calcular a função em 1,5 milhão de linhas; reescrevendo em intervalo semiaberto de primeiro de janeiro de 2025 até menor que 2026, preservamos exatidão e ativamos o índice. E em Q10, substituir \texttt{MAX} correlacionado por \texttt{NOT EXISTS} gera um \emph{Left Anti Semi Join} muito mais enxuto. Metodologicamente, cada cenário rodou 30 vezes em \emph{Warm Cache} com dois aquecimentos prévios e alternância de ordem, mais 10 vezes em \emph{Cold Cache} limpando cache de dados e de planos. Aplicamos Shapiro-Wilk sobre as diferenças pareadas para escolher entre teste $t$ de Student pareado ou Wilcoxon pareado. O Integrante 3 apresenta agora o que medimos.''
+\end{falaBox}
+
+\begin{expBox}
+  \begin{itemize}[leftmargin=14pt,itemsep=2pt,topsep=1pt]
+    \item \textbf{Por que enfatizar o prefixo \texttt{N'...'} em Q8?} A coluna \texttt{Produtos.Nome} é \texttt{NVARCHAR(150)} (Unicode). Passar literal \texttt{VARCHAR} sem \texttt{N} gera conversão implícita de tipo que frequentemente impede um \emph{Index Seek} limpo. Além disso, lembre sempre da \emph{ressalva semântica}: \texttt{LIKE N'\%Notebook\%'} busca em qualquer posição e \texttt{LIKE N'Notebook\%'} busca só no início — só são equivalentes porque os produtos da base começam padronizadamente pelo nome da categoria (2.002 linhas iguais nos dois testes; texto livre exigiria \emph{Full-Text Search}).
+    \item \textbf{Por que intervalo semiaberto \texttt{>= '2025-01-01' AND < '2026-01-01'} em Q9?} Porque \texttt{DataPedido} é \texttt{DATETIME2(0)}: usar \texttt{BETWEEN '2025-01-01' AND '2025-12-31'} perderia horários após \texttt{00:00:00} do dia 31/12. O intervalo semiaberto garante 100\% de exatidão e mantém a coluna livre para \emph{Seek}.
+    \item \textbf{O que fazem os comandos de \emph{Cold Cache}?} \texttt{CHECKPOINT} grava páginas sujas; \texttt{DBCC DROPCLEANBUFFERS} zera as páginas de dados em RAM; e \texttt{DBCC FREEPROCCACHE} apaga planos compilados. Em todas as 220 rodadas frias o script validou \texttt{physical\_reads >= 1}.
+    \item \textbf{Resumo estatístico:} Não chutamos teste paramétrico cegamente — o script \texttt{analyze\_results.py} testa normalidade via Shapiro-Wilk ($\alpha=0{,}05$) nas diferenças pareadas para decidir entre \textbf{t-Student pareado} (normal) e \textbf{Wilcoxon pareado} (não-paramétrico).
+  \end{itemize}
+\end{expBox}
+
+\end{document}

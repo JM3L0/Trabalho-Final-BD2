@@ -1,0 +1,230 @@
+\documentclass[10pt,a4paper]{article}
+
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage[brazilian]{babel}
+\usepackage[a4paper,top=1.25cm,bottom=1.35cm,left=1.5cm,right=1.5cm,headheight=13pt]{geometry}
+\usepackage{xcolor}
+\usepackage{enumitem}
+\usepackage{fancyhdr}
+\usepackage{hyperref}
+\usepackage[most]{tcolorbox}
+
+\setlength{\emergencystretch}{2em}
+
+\definecolor{BrandDark}{HTML}{1E293B}
+\definecolor{BrandSlate}{HTML}{475569}
+\definecolor{BrandAmber}{HTML}{B45309}
+\definecolor{BrandBg}{HTML}{F8FAFC}
+\definecolor{BrandLine}{HTML}{CBD5E1}
+\definecolor{OkGreen}{HTML}{15803D}
+\definecolor{InfoBlue}{HTML}{1D4ED8}
+
+\hypersetup{
+  colorlinks=true,
+  linkcolor=InfoBlue,
+  urlcolor=InfoBlue,
+  pdftitle={Roteiro Explicativo — Integrante 3 (Slides 8 a 12)},
+  pdfauthor={Grupo BD2 (UFPI/CSHNB)}
+}
+
+\setlength{\parindent}{0pt}
+\setlength{\parskip}{3pt}
+
+\pagestyle{fancy}
+\fancyhf{}
+\fancyhead[L]{\footnotesize\textcolor{BrandSlate}{\textbf{BD II (2026.2)} · Guia Individual do Apresentador}}
+\fancyhead[R]{\footnotesize\textcolor{BrandSlate}{\textbf{Integrante 3} (Slides 8--12)}}
+\fancyfoot[L]{\footnotesize\textcolor{BrandSlate}{Orçamento humano alvo: $\sim$2m00s (teto máximo: 2m45s)}}
+\fancyfoot[R]{\footnotesize\textcolor{BrandSlate}{Pág. \thepage}}
+\renewcommand{\headrulewidth}{0.4pt}
+\renewcommand{\footrulewidth}{0.4pt}
+
+\newcommand{\tagTime}[1]{\colorbox{BrandDark}{\textcolor{white}{\textbf{\footnotesize\ #1\ }}}}
+
+\newcommand{\slideHeader}[3]{%
+  \noindent{\Large\bfseries\color{BrandDark} Slide #1 — #2}\hfill\tagTime{Alvo: #3}\par
+  \vspace{2pt}\noindent\textcolor{BrandAmber}{\rule{\linewidth}{1.3pt}}\par
+  \vspace{4pt}
+}
+
+\newtcolorbox{telaBox}[1][O que aparece neste slide no Canva]{
+  colback=BrandBg,
+  colframe=BrandSlate!60!black,
+  fonttitle=\bfseries\small,
+  title={#1},
+  boxrule=0.6pt,
+  arc=3pt,
+  left=8pt,right=8pt,top=5pt,bottom=5pt
+}
+
+\newtcolorbox{falaBox}[1][Fala sugerida (leitura natural em voz alta)]{
+  colback=InfoBlue!4!white,
+  colframe=InfoBlue!75!black,
+  fonttitle=\bfseries\small,
+  title={#1},
+  boxrule=0.8pt,
+  arc=3pt,
+  left=9pt,right=9pt,top=6pt,bottom=6pt
+}
+
+\newtcolorbox{expBox}[1][Explicação em tópicos das informações da fala (cola técnica para o apresentador)]{
+  colback=OkGreen!4!white,
+  colframe=OkGreen!75!black,
+  fonttitle=\bfseries\small,
+  title={#1},
+  boxrule=0.7pt,
+  arc=3pt,
+  left=8pt,right=8pt,top=6pt,bottom=6pt
+}
+
+\begin{document}
+
+\begin{tcolorbox}[colback=BrandDark,colframe=BrandDark,arc=4pt,left=11pt,right=11pt,top=8pt,bottom=8pt]
+  {\Large\bfseries\color{white} Roteiro Explicativo — Integrante 3 (Slides 8 a 12)}\\[3pt]
+  {\small\color{BrandLine} Resultados Experimentais (N=30 / Cold), Planos Reais, Trade-offs e Passagem para a Prática}\\[4pt]
+  {\footnotesize\color{white}
+    \textbf{Tempo alvo:} $\sim$2m00s \quad|\quad
+    \textbf{Teto:} 2m45s \quad|\quad
+    \textbf{Recebe de:} Integrante 2 \quad|\quad
+    \textbf{Passa para:} Integrante 4 (Prática no VS Code)
+  }
+\end{tcolorbox}
+
+\vspace{4pt}
+{\small\color{BrandSlate}\textbf{Regra desta folha:} \textbf{um único slide por página} com foco direto nos gráficos e nos dois contra-exemplos (\texttt{Q7} e \texttt{W1}) para entregar tempo máximo aos colegas da prática ao vivo.}
+
+\vspace{6pt}
+
+% ==============================================================================
+% SLIDE 8
+% ==============================================================================
+\slideHeader{8}{Resultados de E/S Lógica (Warm Cache N=30)}{$\sim$0m30s}
+
+\begin{telaBox}
+  \begin{itemize}[leftmargin=14pt,itemsep=1pt,topsep=1pt]
+    \item \textbf{Gráfico \texttt{fig1\_leituras\_logicas.png} (escala logarítmica):} barras azuis (Baseline) vs. verdes (Otimizado, $Q_1$--$Q_{10}$) e barra vermelha de alerta em $W_1$ ($+85{,}3\%$).
+  \end{itemize}
+\end{telaBox}
+
+\begin{falaBox}
+``Passando aos resultados de E/S lógica em \emph{Warm Cache}, neste gráfico em escala logarítmica vemos que nove das dez leituras caíram drasticamente, todas com significância estatística $p < 10^{-4}$. O destaque foi Q6, que despencou de 8.090 para 3 páginas — menos 99,96\% e mais de 424 vezes mais rápida ao eliminar o \emph{Sort}. Q8 acelerou 114 vezes e Q5 caiu de 450 para 12 milissegundos ao trocar \emph{Hash Join} duplo por \emph{Merge} e \emph{Nested Loops}. Mas reparem à direita na barra vermelha de W1: a escrita em lote subiu 85,33\% em páginas lidas pela atualização dos índices.''
+\end{falaBox}
+
+\begin{expBox}
+  \begin{itemize}[leftmargin=14pt,itemsep=2pt,topsep=1pt]
+    \item \textbf{Por que usamos ``$>15\times$'', ``$>111\times$'' e ``$>424\times$'' com o sinal ``$>$''?} Porque o temporizador \texttt{SET STATISTICS TIME} do SQL Server tem resolução de 1 ms: tempos abaixo de 0,5 ms aparecem como 0 ms no motor ($Q_1, Q_4, Q_6$). Para não dividir por zero nem inventar frações, anotamos como $<1$ ms e reportamos o limite conservador em relação a 1 ms (ex.: $424{,}0 / 1 = >424\times$).
+    \item \textbf{Resumo dos ganhos em Warm ($N=30$):}
+      $Q_1$: 2.856 $\rightarrow$ 6 págs (15 $\rightarrow$ $<1$ ms);
+      $Q_2$: 8.090 $\rightarrow$ 34 págs (104,5 $\rightarrow$ 1,5 ms, $69{,}7\times$);
+      $Q_3$: 8.090 $\rightarrow$ 17 págs (87 $\rightarrow$ 1 ms, $87\times$);
+      $Q_5$: 28.818 $\rightarrow$ 5.295 págs (450 $\rightarrow$ 12 ms, $37{,}5\times$);
+      $Q_6$: 8.090 $\rightarrow$ 3 págs (424 $\rightarrow$ $<1$ ms, $-99{,}96\%$);
+      $Q_8$: 637 $\rightarrow$ 28 págs (114 $\rightarrow$ 1 ms, $114\times$);
+      $Q_9$: 8.090 $\rightarrow$ 1.565 págs (226 $\rightarrow$ 26 ms, $8{,}69\times$);
+      $Q_{10}$: 10.946 $\rightarrow$ 8.252 págs (370,5 $\rightarrow$ 219,5 ms, $1{,}69\times$).
+  \end{itemize}
+\end{expBox}
+
+\clearpage
+
+% ==============================================================================
+% SLIDE 9
+% ==============================================================================
+\slideHeader{9}{Caso Q4 em 3 Estágios (Key Lookup vs. INCLUDE)}{$\sim$0m25s}
+
+\begin{telaBox}
+  \begin{itemize}[leftmargin=14pt,itemsep=1pt,topsep=1pt]
+    \item \textbf{Gráfico \texttt{fig3\_q4\_tres\_estagios.png}:} dois painéis — (a) Leituras Lógicas (\texttt{8.090 $\rightarrow$ 1.296 $\rightarrow$ 5}); (b) Latência (\texttt{111,0 ms $\rightarrow$ 1,0 ms $\rightarrow$ <1 ms}).
+  \end{itemize}
+\end{telaBox}
+
+\begin{falaBox}
+``Na consulta Q4, isolamos a evolução em três estágios para provar o papel da cláusula \texttt{INCLUDE}. No Baseline, o \emph{Clustered Scan} lia 8.090 páginas em 111 milissegundos. Ao criar apenas um índice simples em \texttt{ClienteID}, a busca já foi para 1 milissegundo, mas ainda consumiu 1.296 leituras lógicas porque precisou fazer 422 idas individuais por \emph{Key Lookup} até a tabela base. Quando trocamos pelo índice de cobertura com \texttt{INCLUDE (DataPedido, ValorTotal)}, todas as colunas ficaram na folha: o \emph{Lookup} sumiu e as leituras despencaram para apenas 5 páginas, redução total de 99,94\%.''
+\end{falaBox}
+
+\begin{expBox}
+  \begin{itemize}[leftmargin=14pt,itemsep=2pt,topsep=1pt]
+    \item \textbf{De onde vêm as 1.296 páginas no Estágio 2?} Retornam 422 pedidos. A travessia no índice secundário (\texttt{IX\_Pedidos\_ClienteID}) custa apenas 4 leituras, porém o \emph{Key Lookup} na PK clusterizada realiza \textbf{422 execuções} ($\sim$3 páginas por lookup $\rightarrow$ 1.196 leituras só no operador de Lookup, totalizando 1.296 leituras lógicas na execução).
+    \item \textbf{Comparação relativa dupla de Q4:} cair de 1.296 para 5 páginas representa \textbf{$-99{,}61\%$} sobre o índice simples e \textbf{$-99{,}94\%$} sobre o Baseline (8.090 para 5).
+    \item \textbf{Conexão direta com a prática:} o Integrante 5 vai rodar Q4 ao vivo e abrir o arquivo \texttt{q4\_intermediate\_lookup.sqlplan} para comprovar visualmente esses dois planos.
+  \end{itemize}
+\end{expBox}
+
+\clearpage
+
+% ==============================================================================
+% SLIDE 10
+% ==============================================================================
+\slideHeader{10}{Evidência Direta nos Planos Físicos (ShowPlanXML)}{$\sim$0m20s}
+
+\begin{telaBox}
+  \begin{itemize}[leftmargin=14pt,itemsep=1pt,topsep=1pt]
+    \item \textbf{Figura \texttt{fig5\_planos\_execucao.png}:} 4 diagramas extraídos direto dos \texttt{.sqlplan} reais — (a) Q1, (b) Q4, (c) Q7 e (d) W1.
+  \end{itemize}
+\end{telaBox}
+
+\begin{falaBox}
+``Estes quatro diagramas foram extraídos diretamente dos arquivos XML de planos reais do SQL Server. Em (a) e (b), confirmamos visualmente a troca de \emph{Scan} por \emph{Seek} e a remoção completa do \emph{Key Lookup} com \texttt{INCLUDE}. Já em (c) e (d) estão os motivos estruturais dos nossos dois trade-offs: em Q7 o otimizador abandona o \emph{Hash Match} para usar \emph{Stream Aggregate}, e em W1 surge o operador \emph{Sequence} ramificando a escrita simultaneamente em quatro árvores B+.''
+\end{falaBox}
+
+\begin{expBox}
+  \begin{itemize}[leftmargin=14pt,itemsep=2pt,topsep=1pt]
+    \item \textbf{(a) Q1:} \texttt{Clustered Index Scan} (custo est. 2,329) $\rightarrow$ \texttt{Nested Loops} unindo \texttt{Index Seek} + \texttt{Key Lookup} (custo est. 0,00657, 6 páginas). Como é apenas 1 linha, o Lookup não prejudica.
+    \item \textbf{(b) Q4:} \texttt{Nested Loops + Key Lookup} no intermediário (custo 1,282, onde 1,277 está no Lookup = 99,6\% do custo) $\rightarrow$ \texttt{Index Seek (Covering)} único no Otimizado (custo 0,00447, 5 páginas).
+    \item \textbf{(c) Q7:} Baseline (custo est. 12,640) vs. Otimizado (custo est. 6,728) — o otimizador acha o segundo mais barato na estimativa, mas troca o modo de execução (explicado no próximo slide).
+    \item \textbf{(d) W1:} No Otimizado aparece o operador \texttt{Sequence} (custo 3,841) disparando 4 gravações sequenciais (\texttt{PK\_ItensPedido}, \texttt{PedidoID}, \texttt{ProdutoID} e índice filtrado \texttt{Desconto >= 10}).
+  \end{itemize}
+\end{expBox}
+
+\clearpage
+
+% ==============================================================================
+% SLIDE 11
+% ==============================================================================
+\slideHeader{11}{Trade-offs: Q7 (Batch), W1 e Cold Cache}{$\sim$0m25s}
+
+\begin{telaBox}
+  \begin{itemize}[leftmargin=14pt,itemsep=1pt,topsep=1pt]
+    \item \textbf{Gráfico \texttt{fig4\_warm\_vs\_cold\_cache.png}:} comparação Warm ($N=30$) vs. Cold ($N=10$) para Q1, Q3, Q5, Q7, Q9 e W1 em escala logarítmica.
+  \end{itemize}
+\end{telaBox}
+
+\begin{falaBox}
+``Aqui temos nossos resultados mais instrutivos, provando que menos E/S nem sempre gera menos latência. Na consulta Q7, o índice de cobertura cortou 30\% das páginas lidas — de 8.090 para 5.658 —, mas a mediana de tempo piorou de 217 para 364 milissegundos, speedup de 0,60 vez. O \emph{ShowPlanXML} explica: o Baseline usava \emph{Hash Match} em \emph{Batch Mode} vetorizado sobre 1,5 milhão de linhas, enquanto o índice levou a um \emph{Stream Aggregate} operando em \emph{Row Mode} tupla a tupla. E no gráfico de \emph{Cold Cache}, esvaziar o \emph{buffer pool} mantém larga vantagem nas leituras indexadas — Q5 ainda fica 4,33 vezes mais rápida —, mas expõe o peso da escrita em W1, que dispara para $+264{,}7\%$ em E/S e mais de um segundo de resposta.''
+\end{falaBox}
+
+\begin{expBox}
+  \begin{itemize}[leftmargin=14pt,itemsep=2pt,topsep=1pt]
+    \item \textbf{Por que o otimizador escolheu o plano mais lento em Q7?} Porque o modelo de custos estimou subárvore menor usando a ordenação prévia do índice (\texttt{6,7281} contra \texttt{12,6401}), sem perceber que sob \texttt{MAXDOP 1} o \emph{Stream Aggregate} em \emph{Row Mode} teria sobrecarga de chamada virtual por tupla superior à agregação vetorizada (\emph{Batch Mode}) do \emph{Hash Match}.
+    \item \textbf{Números de Q7:} \emph{Warm} ($N=30$): 8.090 $\rightarrow$ 5.658 págs ($-30{,}06\%$), tempo 217,0 $\rightarrow$ 364,0 ms ($0{,}60\times$, $+67{,}7\%$ latência, $p=1{,}73\times 10^{-6}$). \emph{Cold} ($N=10$): 402,0 $\rightarrow$ 685,0 ms ($0{,}59\times$).
+    \item \textbf{Números de W1 (inserção de 10.000 itens):} \emph{Warm}: 97.154 $\rightarrow$ 180.057 págs ($+85{,}33\%$, tempo 384,0 $\rightarrow$ 404,0 $\pm$ 853,2 ms, $p=0{,}129$). \emph{Cold}: 77.448,5 $\rightarrow$ 282.476,0 págs ($+264{,}73\%$, tempo 502,0 $\rightarrow$ 1.098,5 ms, $0{,}46\times$, $p=0{,}00195$). O índice filtrado atuou seletivamente em 1.964 das 10.000 linhas inseridas.
+    \item \textbf{O que o \emph{Cold Cache} garante no estudo?} Confirma (\texttt{physical\_reads >= 1} nas 220 execuções) que os benefícios sobrevivem mesmo quando a base não cabe inteira no \emph{buffer pool} (ex.: Q5 fria: 1.027,5 $\rightarrow$ 237,5 ms, $4{,}33\times$).
+  \end{itemize}
+\end{expBox}
+
+\clearpage
+
+% ==============================================================================
+% SLIDE 12
+% ==============================================================================
+\slideHeader{12}{Conclusão e Transição para a Prática ao Vivo}{$\sim$0m20s}
+
+\begin{telaBox}
+  \begin{itemize}[leftmargin=14pt,itemsep=1pt,topsep=1pt]
+    \item 4 pontos finais sintetizando ganhos (-99,96\%), alertas (Q7/W1), regra prática (\texttt{STATISTICS IO/TIME} + \texttt{ShowPlanXML}) e passagem aos Integrantes 4 e 5.
+  \end{itemize}
+\end{telaBox}
+
+\begin{falaBox}
+``Em conclusão, combinar sargabilidade com índices de cobertura entregou quedas de até 99,96\% em E/S lógica e eliminou 422 \emph{Key Lookups} em Q4. Contudo, W1 e Q7 refutam a ideia ingênua de que mais índices ou menos páginas lidas garantem automaticamente maior velocidade. A lição central de engenharia é nunca indexar no escuro: é indispensável validar sempre \texttt{STATISTICS IO}, \texttt{TIME} e o \emph{ShowPlanXML} real. Agora encerramos os slides e vamos à nossa apresentação prática de dez minutos no Docker com VS Code, conduzida pelos Integrantes 4 e 5, executando ao vivo Q1, Q3, Q4, W1 e inspecionando Q7. Obrigado!''
+\end{falaBox}
+
+\begin{expBox}
+  \begin{itemize}[leftmargin=14pt,itemsep=2pt,topsep=1pt]
+    \item \textbf{Ideia-força para fechar bem antes da prática:} A teoria (slides) e a evidência empírica ($N=30$ e planos XML) apontam direto para o que o público vai ver no terminal e no \texttt{ms-mssql} nos próximos minutos — nenhuma afirmação fica apenas no papel.
+    \item \textbf{Gancho exato para o Integrante 4:} Enquanto você diz a última frase, o Integrante 4 já pode assumir o computador com o VS Code e a aba \texttt{docker-compose.yml} abertos na tela para não desperdiçar segundos na transição.
+  \end{itemize}
+\end{expBox}
+
+\end{document}
