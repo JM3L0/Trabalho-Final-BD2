@@ -170,6 +170,8 @@ def compile_paper(tex_name: str = "main.tex", max_pages: int = 10, strict: bool 
     _run_step(["bibtex", stem], PAPER_DIR)
     _run_step(pdflatex_cmd, PAPER_DIR)
     final_output = _run_step(pdflatex_cmd, PAPER_DIR)
+    if "Rerun to get cross-references right" in final_output:
+        final_output = _run_step(pdflatex_cmd, PAPER_DIR)
 
     pdf_path = PAPER_DIR / f"{stem}.pdf"
     if not pdf_path.exists():
