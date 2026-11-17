@@ -1,6 +1,6 @@
 {
   "pdf_path": "paper/main.pdf",
-  "pdf_bytes": 1043063,
+  "pdf_bytes": 1083795,
   "pages": 10,
   "max_pages": 10,
   "overfull_count": 0,
@@ -32,12 +32,9 @@
       ]
     },
     {
-      "path": "figures/fig5_planos_execucao.png",
+      "path": "figures/fig5_planos_execucao.pdf",
       "exists": true,
-      "dpi": [
-        300.0,
-        300.0
-      ]
+      "dpi": null
     },
     {
       "path": "figures/fig4_warm_vs_cold_cache.png",
