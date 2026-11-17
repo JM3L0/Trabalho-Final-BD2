@@ -3,6 +3,9 @@
 > **Para quem é este documento?**
 > Este guia foi escrito **do zero absoluto** para explicar todo o projeto da nossa equipe na disciplina de **Banco de Dados II (UFPI — 2026.2, Prof. Dennis Sávio)**. Se você não participou da codificação ou ainda não entendeu o que são os índices, o que significam as siglas **Q1 a Q10 e W1**, como ler os resultados, como funciona o código ou o que falar nos slides e nos roteiros, **este documento explica tudo passo a passo, em linguagem simples e direta**.
 
+> **Status após os commits finais da equipe (até 17/11/2026):**
+> Os commits recentes dos colegas revisaram a redação e a diagramação do artigo ([paper/main.tex](file:///c:/Users/MWSS/OneDrive/Desktop/Trabalho-Final-BD2/paper/main.tex) / [paper/main.pdf](file:///c:/Users/MWSS/OneDrive/Desktop/Trabalho-Final-BD2/paper/main.pdf)) e atualizaram a documentação de execução ([Como rodar.md](file:///c:/Users/MWSS/OneDrive/Desktop/Trabalho-Final-BD2/Como%20rodar.md)). **Nenhum experimento, consulta SQL (`Q1`–`Q10` e `W1`), índice, número de benchmark, slide ou roteiro prático foi alterado.** As diferenças de numeração de tabelas/figuras entre o artigo revisado, os scripts e os slides já estão explicadas ao longo deste guia.
+
 ---
 
 ## Sumário
@@ -23,7 +26,7 @@
 ### 1.1. Qual é a tarefa do Trabalho Final?
 O edital da disciplina ([Trabalho Final.pdf](file:///c:/Users/MWSS/OneDrive/Desktop/Trabalho-Final-BD2/Trabalho%20Final.pdf)) pediu um estudo prático e científico sobre **Indexação, Planos de Execução e Otimização de Consultas** em um Sistema Gerenciador de Banco de Dados (SGBD) comercial real (o edital proibiu MySQL).
 A nota é dividida em duas entregas:
-1. **Artigo Científico (7,0 pontos):** Escrito em LaTeX no formato da SBC com até 10 páginas ([paper/main.pdf](file:///c:/Users/MWSS/OneDrive/Desktop/Trabalho-Final-BD2/paper/main.pdf)).
+1. **Artigo Científico (7,0 pontos):** Escrito em LaTeX no formato da SBC com exatamente 10 páginas ([paper/main.pdf](file:///c:/Users/MWSS/OneDrive/Desktop/Trabalho-Final-BD2/paper/main.pdf)), validado com `0` *Overfull* e assinado pelos 5 integrantes (**Hermeson Alves de Oliveira, João Marcos Sousa Rufino Leal, Lizzandro Welson Holanda de Carvalho Galdino, Marcos Willian de Sousa e Silva e Raildom da Rocha Sobrinho**), incluindo *Abstract*/*Resumo* com *Keywords*/*Palavras-chave*.
 2. **Apresentação Oral + Demonstração Prática (3,0 pontos):** Até 20 minutos para apresentar os slides ([slides/apresentacao.pdf](file:///c:/Users/MWSS/OneDrive/Desktop/Trabalho-Final-BD2/slides/apresentacao.pdf)) e mostrar as consultas rodando ao vivo no banco de dados.
 
 ### 1.2. Qual é o assunto central (em linguagem humana)?
@@ -94,7 +97,7 @@ O banco modela uma loja virtual com **4 tabelas**:
 
 | Tabela | Quantidade de Linhas | Chave Primária (Clusterizada) | Colunas Principais e Detalhes |
 | :--- | ---: | :--- | :--- |
-| **`dbo.Clientes`** | **200.000** | `PK_Clientes (ClienteID)` | `ClienteID`, `Nome` (`NVARCHAR`), `Email` (`VARCHAR`), `Cidade`, `Estado`, `DataCadastro`. *(Nota: apenas os clientes de 1 a 190.000 fazem pedidos; exatamente 10.000 clientes nunca compraram nada, para testarmos a Q10!)* |
+| **`dbo.Clientes`** | **200.000** | `PK_Clientes (ClienteID)` | `ClienteID`, `Nome` (`NVARCHAR`), `Email` (`VARCHAR`), `Cidade`, `Estado`, `DataCadastro`. *(Nota: apenas os clientes de 1 a 190.000 entram no sorteio dos pedidos; os clientes 190.001 a 200.000 nunca compram nada e, por sorteio nos 1,5M de pedidos, mais 60 clientes da faixa inicial ficam zerados — totalizando exatamente 10.060 clientes sem pedidos para testarmos a Q10!)* |
 | **`dbo.Produtos`** | **50.000** | `PK_Produtos (ProdutoID)` | `ProdutoID`, `Nome` (`NVARCHAR(150)`), `Categoria`, `Preco`, `Estoque`. |
 | **`dbo.Pedidos`** | **1.500.000** | `PK_Pedidos (PedidoID)` | `PedidoID`, `ClienteID` (FK), `DataPedido` (`DATETIME2(0)` entre 2022 e out/2026), `Status` (`ENTREGUE` 55%, `PAGO` 15%, `ENVIADO` 12%, `PENDENTE` 8%, `CANCELADO` 7%, `DEVOLVIDO` 3%), `ValorTotal`. |
 | **`dbo.ItensPedido`** | **4.500.000** | `PK_ItensPedido (ItemPedidoID)` | `ItemPedidoID`, `PedidoID` (FK), `ProdutoID` (FK), `Quantidade` (1 a 5), `PrecoUnitario`, `Desconto` (`0%`, `5%`, `10%` ou `15%` — sendo que `10%` e `15%` somam 20% da tabela). |
@@ -240,12 +243,11 @@ Abaixo está a explicação completa de cada uma delas!
 ---
 
 ### 🔹 Q6 — Paginação dos 50 Pedidos Mais Recentes (`TOP 50 ... ORDER BY DataPedido DESC`)
-* **O que ela faz:** Mostra na tela os 50 últimos pedidos da loja em ordem decrescente de data (típico painel de administração).
+* **O que ela faz:** Mostra na tela os 50 últimos pedidos da loja em ordem decrescente de data (típico painel de administração), sem filtro `WHERE` (direto na tabela inteira).
 * **Código SQL (idêntico nas duas bases):**
   ```sql
   SELECT TOP 50 PedidoID, ClienteID, DataPedido, Status, ValorTotal
   FROM dbo.Pedidos
-  WHERE ... -- (sem WHERE, direto na tabela toda)
   ORDER BY DataPedido DESC
   OPTION (MAXDOP 1);
   ```
@@ -384,8 +386,8 @@ Abaixo está a explicação completa de cada uma delas!
 
 ## Parte 5 — Explicação Completa dos Resultados e Gráficos
 
-### 5.1. Tabela Geral de Resultados — Warm Cache ($N = 30$)
-Esta é a tabela principal que está no artigo ([paper/main.pdf](file:///c:/Users/MWSS/OneDrive/Desktop/Trabalho-Final-BD2/paper/main.pdf)) e nos slides:
+### 5.1. Tabela Geral de Resultados — Warm Cache ($N = 30$) e Cold Cache ($N = 10$)
+Esta tabela reúne todos os números oficiais em **Warm Cache ($N = 30$)** medidos em [results/summary_table.csv](file:///c:/Users/MWSS/OneDrive/Desktop/Trabalho-Final-BD2/results/summary_table.csv) (e presentes nos slides e em [paper/generated/tabela_resultados.tex](file:///c:/Users/MWSS/OneDrive/Desktop/Trabalho-Final-BD2/paper/generated/tabela_resultados.tex)):
 
 | Consulta | O que testa | Leituras Base | Leituras Otim. | Redução de E/S | Tempo Base (ms) | Tempo Otim. (ms) | Speedup | Significância ($p$-valor) |
 | :---: | :--- | ---: | ---: | ---: | ---: | ---: | :---: | :--- |
@@ -401,19 +403,40 @@ Esta é a tabela principal que está no artigo ([paper/main.pdf](file:///c:/User
 | **Q10** | Subconsulta vs `NOT EXISTS` | 10.946 | 8.252 | **24,61%** | 370,5 ± 34,2 | **219,5** ± 23,9 | **1,69x** | $p < 10^{-4}$ (Wilcoxon) |
 | **W1** | ⚠️ `INSERT` de 10.000 itens | 97.154 | 180.057 | **-85,33% (Subiu)** | **384,0** ± 113,9 | 404,0 ± 853,2 | **0,95x** | $p = 0,129$ (Wilcoxon) |
 
+> **Como isso aparece no Artigo Final ([paper/main.pdf](file:///c:/Users/MWSS/OneDrive/Desktop/Trabalho-Final-BD2/paper/main.pdf)) após os ajustes dos colegas:**
+> * **Numeração das tabelas no artigo:** os colegas criaram uma nova **Tabela 1** com as especificações do ambiente experimental (`CPU`, `16GB` RAM arredondada de `15,71 GB`, `SSD`, `Windows 11 Home`, `Docker Ubuntu 22.04.5 LTS`, `SQL Server 2022 RTM-CU28`, `Python 3 / uv / pymssql`). Com isso, os **9 índices secundários** passaram a ser a **Tabela 2** do artigo, e a antiga tabela de resumo das consultas (`Q1`–`Q10`, `W1`) virou texto corrido na Seção 3.2.
+> * **Tabela 3 do artigo (Warm Cache):** agora está escrita diretamente no [paper/main.tex](file:///c:/Users/MWSS/OneDrive/Desktop/Trabalho-Final-BD2/paper/main.tex) (em vez de importar `paper/generated/tabela_resultados.tex`). Ela acrescentou a coluna **`Linhas`**, omitiu os desvios padrão (`± DP`) e a coluna **`$p$-valor`** da tabela (deixando `p < 10^{-4}` para `Q1`–`Q6`/`Q8`–`Q10` e os valores de `W1` no texto corrido), e mostra o `Speedup (×)` apenas numérico (`15,0`, `111,0`, `424,0`), explicando logo abaixo que os casos `< 1 ms` têm aceleração calculada como piso conservador em relação a `1 ms`.
+
+**Resumo em Cold Cache ($N = 10$, após limpeza de memória e planos):**
+
+| Consulta | Leituras Base | Leituras Otim. | Redução de E/S | Tempo Base (ms) | Tempo Otim. (ms) | Speedup | Significância ($p$-valor) |
+| :---: | ---: | ---: | ---: | ---: | ---: | :---: | :--- |
+| **Q1** | 2.856 | 6 | **99,79%** | 44,0 | **3,5** | **12,6x** | $p = 0,00195$ (Wilcoxon) |
+| **Q2** | 8.090 | 34 | **99,58%** | 281,5 | **6,0** | **46,9x** | $p < 10^{-4}$ (t-Student) |
+| **Q3** | 8.090 | 17 | **99,79%** | 246,5 | **6,5** | **37,9x** | $p < 10^{-4}$ (t-Student) |
+| **Q4** | 8.090 | 5 | **99,94%** | 194,0 | **2,0** | **97,0x** | $p < 10^{-4}$ (t-Student) |
+| **Q5** | 28.818 | 11.927,5 | **58,61%** | 1.027,5 | **237,5** | **4,33x** | $p < 10^{-4}$ (t-Student) |
+| **Q6** | 8.090 | 3 | **99,96%** | 772,0 | **2,0** | **386,0x** | $p < 10^{-4}$ (t-Student) |
+| **Q7** | 8.090 | 5.658 | **30,06%** | **402,0** | 685,0 | **0,59x** | $p < 10^{-4}$ (t-Student) |
+| **Q8** | 637 | 28 | **95,60%** | 207,0 | **5,0** | **41,4x** | $p < 10^{-4}$ (t-Student) |
+| **Q9** | 8.090 | 1.565 | **80,66%** | 588,0 | **74,5** | **7,89x** | $p < 10^{-4}$ (t-Student) |
+| **Q10** | 10.946 | 8.252 | **24,61%** | 715,0 | **443,0** | **1,61x** | $p < 10^{-4}$ (t-Student) |
+| **W1** | 77.448,5 | 282.476 | **-264,73%** | **502,0** | 1.098,5 | **0,46x** | $p = 0,00195$ (Wilcoxon) |
+
 ### 5.2. O que cada um dos 5 Gráficos (`paper/figures/`) mostra?
-Quando você olhar para os slides ou para o PDF do artigo, verá 5 figuras geradas pelo nosso código:
-1. **[fig1_leituras_logicas.png](file:///c:/Users/MWSS/OneDrive/Desktop/Trabalho-Final-BD2/paper/figures/fig1_leituras_logicas.png) (Slide 6 / Slide 8 do roteiro):**
+Quando você olhar para os slides ou para o PDF do artigo, verá 5 figuras (atenção à ordem de numeração no artigo atual, onde `fig5` aparece como **Figura 4** e `fig4` aparece como **Figura 5**):
+1. **Figura 1 do Artigo — [fig1_leituras_logicas.png](file:///c:/Users/MWSS/OneDrive/Desktop/Trabalho-Final-BD2/paper/figures/fig1_leituras_logicas.png) (Slide 6 do Beamer / Slide 8 do roteiro):**
    - Gráfico de barras comparando as **Leituras Lógicas** do Baseline (azul) vs. Otimizado (verde nas leituras, vermelho na escrita W1).
    - **Atenção:** O eixo Y está em **escala logarítmica** ($1, 10, 100, 1.000, 10.000, 100.000$), porque se fosse escala normal, uma barra de `3` páginas (Q6) perto de uma de `180.057` páginas (W1) nem apareceria na tela!
-2. **[fig2_tempos_execucao_boxplot.png](file:///c:/Users/MWSS/OneDrive/Desktop/Trabalho-Final-BD2/paper/figures/fig2_tempos_execucao_boxplot.png) (Slide 7 do Beamer):**
+2. **Figura 2 do Artigo — [fig2_tempos_execucao_boxplot.png](file:///c:/Users/MWSS/OneDrive/Desktop/Trabalho-Final-BD2/paper/figures/fig2_tempos_execucao_boxplot.png) (Slide 7 do Beamer):**
    - Mostra os **Boxplots (diagramas de caixa)** das 30 execuções de cada consulta em milissegundos e o Speedup alcançado. Mostra visualmente como os tempos otimizados ficam colados no zero nas consultas seletivas.
-3. **[fig3_q4_tres_estagios.png](file:///c:/Users/MWSS/OneDrive/Desktop/Trabalho-Final-BD2/paper/figures/fig3_q4_tres_estagios.png) (Slide 8 do Beamer / Slide 9 do roteiro):**
+3. **Figura 3 do Artigo — [fig3_q4_tres_estagios.png](file:///c:/Users/MWSS/OneDrive/Desktop/Trabalho-Final-BD2/paper/figures/fig3_q4_tres_estagios.png) (Slide 8 do Beamer / Slide 9 do roteiro):**
    - Mostra a escadinha da **Q4**: como saímos de `8.090` páginas no Scan, caímos para `1.296` páginas quando criamos um índice simples (mas sofremos 422 *Key Lookups*), e finalmente chegamos a `5` páginas quando adicionamos `INCLUDE (DataPedido, ValorTotal)`.
-4. **[fig4_warm_vs_cold_cache.png](file:///c:/Users/MWSS/OneDrive/Desktop/Trabalho-Final-BD2/paper/figures/fig4_warm_vs_cold_cache.png) (Slide 10 do Beamer / Slide 11 do roteiro):**
-   - Compara o tempo em **Warm Cache (memória quente)** contra **Cold Cache (memória fria, lendo do SSD)**. Mostra que mesmo limpando a RAM, as consultas indexadas continuam muito mais rápidas, enquanto a escrita **W1** explode para `1.098,5 ms`.
-5. **[fig5_planos_execucao.png](file:///c:/Users/MWSS/OneDrive/Desktop/Trabalho-Final-BD2/paper/figures/fig5_planos_execucao.png) (Slide 9 do Beamer / Slide 10 do roteiro):**
+4. **Figura 4 do Artigo — [fig5_planos_execucao.pdf](file:///c:/Users/MWSS/OneDrive/Desktop/Trabalho-Final-BD2/paper/figures/fig5_planos_execucao.pdf) (Slide 9 do Beamer / Slide 10 do roteiro):**
    - Desenha lado a lado os fluxogramas dos operadores físicos extraídos dos arquivos `.sqlplan` reais para **Q1**, **Q4**, **Q7** e **W1**.
+   - *Nota dos commits:* Os colegas converteram essa figura em `paper/figures/` para **PDF vetorial** mais enxuto (`fig5_planos_execucao.pdf`, removendo `paper/figures/fig5_planos_execucao.png`). A versão PNG original gerada pelo Python (com todas as contagens de páginas/ms em cada caixinha, que aparece no `slides/apresentacao.pdf` já compilado) continua salva em [results/charts/fig5_planos_execucao.png](file:///c:/Users/MWSS/OneDrive/Desktop/Trabalho-Final-BD2/results/charts/fig5_planos_execucao.png).
+5. **Figura 5 do Artigo — [fig4_warm_vs_cold_cache.png](file:///c:/Users/MWSS/OneDrive/Desktop/Trabalho-Final-BD2/paper/figures/fig4_warm_vs_cold_cache.png) (Slide 10 do Beamer / Slide 11 do roteiro):**
+   - Compara o tempo em **Warm Cache (memória quente)** contra **Cold Cache (memória fria, lendo do SSD)**. Mostra que mesmo limpando a RAM, as consultas indexadas continuam muito mais rápidas, enquanto a escrita **W1** explode para `1.098,5 ms`.
 
 ---
 
@@ -421,29 +444,39 @@ Quando você olhar para os slides ou para o PDF do artigo, verá 5 figuras gerad
 
 Nosso repositório foi totalmente automatizado em **Python + SQL + Docker**. Você não precisa decorar cada linha de Python, mas entender o que cada arquivo faz dá total segurança na apresentação:
 
-### 6.1. Infraestrutura na Raiz
-* **[docker-compose.yml](file:///c:/Users/MWSS/OneDrive/Desktop/Trabalho-Final-BD2/docker-compose.yml):** Sobe o container `bd2_sqlserver` com a imagem oficial `mcr.microsoft.com/mssql/server:2022-latest` (SQL Server 2022 Developer Edition no Ubuntu). Ele trava o limite de memória RAM do container em **4 GB (`mem_limit: 4g`)**, mapeia a porta `1433` e monta a pasta `./data` dentro do container em `/var/opt/mssql/csv_data`.
-* **[pyproject.toml](file:///c:/Users/MWSS/OneDrive/Desktop/Trabalho-Final-BD2/pyproject.toml):** Define as bibliotecas Python usadas pelo projeto: `pymssql` (para conectar no SQL Server), `numpy` (para gerar os 6,25 milhões de dados rápido), `scipy` (para fazer os testes estatísticos de Shapiro-Wilk, t-Student e Wilcoxon) e `matplotlib` (para desenhar os 5 gráficos).
+### 6.1. Infraestrutura e Documentação na Raiz
+* **[docker-compose.yml](file:///c:/Users/MWSS/OneDrive/Desktop/Trabalho-Final-BD2/docker-compose.yml):** Sobe o container `bd2_sqlserver` com a imagem oficial `mcr.microsoft.com/mssql/server:2022-latest` (SQL Server 2022 Developer Edition no Ubuntu). Ele trava o limite de memória RAM do container em **4 GB (`mem_limit: 4g`)**, mapeia a porta `1433` em `127.0.0.1` e monta a pasta `./data` dentro do container em `/var/opt/mssql/data_import`.
+* **[pyproject.toml](file:///c:/Users/MWSS/OneDrive/Desktop/Trabalho-Final-BD2/pyproject.toml):** Define as bibliotecas Python usadas pelo projeto (gerenciadas via `uv`): `pymssql` (para conectar no SQL Server), `python-dotenv` (para ler `.env`), `numpy` (para gerar os 6,25 milhões de dados rápido), `scipy` (para fazer os testes estatísticos de Shapiro-Wilk, t-Student e Wilcoxon) e `matplotlib` (para desenhar os gráficos).
+* **[Como rodar.md](file:///c:/Users/MWSS/OneDrive/Desktop/Trabalho-Final-BD2/Como%20rodar.md):** Substituiu o antigo `README.md` na raiz do repositório e documenta o passo a passo completo para rodar o projeto no Windows e no Ubuntu (Passos 0 a 11), além do guia rápido da demo ao vivo.
+* **[.env.example](file:///c:/Users/MWSS/OneDrive/Desktop/Trabalho-Final-BD2/.env.example) e [scripts/setup_ubuntu.sh](file:///c:/Users/MWSS/OneDrive/Desktop/Trabalho-Final-BD2/scripts/setup_ubuntu.sh):** Modelo de variáveis de ambiente (`MSSQL_HOST`, `MSSQL_PORT`, `MSSQL_USER`, `MSSQL_SA_PASSWORD`) e script para dar permissão à pasta `./data` no Ubuntu (`uid 10001`).
 
 ### 6.2. Os 4 Scripts SQL de Construção do Banco (`scripts/sql/`)
 1. **[01_create_baseline_db.sql](file:///c:/Users/MWSS/OneDrive/Desktop/Trabalho-Final-BD2/scripts/sql/01_create_baseline_db.sql):** Cria o banco `Ecommerce_Baseline`, configura `RECOVERY SIMPLE` (para não inchar o log de transações durante a carga) e cria as 4 tabelas (`Clientes`, `Produtos`, `Pedidos`, `ItensPedido`) apenas com suas `PRIMARY KEY CLUSTERED` e `FOREIGN KEY`.
-2. **[02_bulk_load_baseline.sql](file:///c:/Users/MWSS/OneDrive/Desktop/Trabalho-Final-BD2/scripts/sql/02_bulk_load_baseline.sql):** Desativa temporariamente as FKs para carregar rápido, executa `BULK INSERT` dos 4 arquivos CSV em lotes de `100.000` linhas (`BATCHSIZE = 100000`), reativa as FKs com `WITH CHECK CHECK CONSTRAINT ALL` (garantindo que o SQL Server confie nas FKs, deixando `is_not_trusted = 0`) e roda `DBCC CHECKCONSTRAINTS`.
+2. **[02_bulk_load_baseline.sql](file:///c:/Users/MWSS/OneDrive/Desktop/Trabalho-Final-BD2/scripts/sql/02_bulk_load_baseline.sql):** Limpa as tabelas para idempotência e executa `BULK INSERT` dos 4 arquivos em lotes de `100.000` linhas (`BATCHSIZE = 100000`, `TABLOCK`, `CHECK_CONSTRAINTS`) — usando `DATAFILETYPE = 'widechar'` nos temporários UTF-16 de `Clientes` e `Produtos` (para preservar acentos no SQL Server Linux) e `'char'` em `Pedidos` e `ItensPedido`. No fim, roda `EXEC sp_updatestats`, `DBCC CHECKCONSTRAINTS WITH ALL_CONSTRAINTS`, `CHECKPOINT` e `DBCC SHRINKFILE`.
 3. **[03_backup_and_clone.sql](file:///c:/Users/MWSS/OneDrive/Desktop/Trabalho-Final-BD2/scripts/sql/03_backup_and_clone.sql):** Faz o `BACKUP DATABASE [Ecommerce_Baseline]` gerando o arquivo `ecommerce_init.bak` e em seguida roda `RESTORE DATABASE [Ecommerce_Otimizado] ... WITH MOVE`, criando a base gêmea idêntica.
 4. **[04_create_indexes_optimized.sql](file:///c:/Users/MWSS/OneDrive/Desktop/Trabalho-Final-BD2/scripts/sql/04_create_indexes_optimized.sql):** Entra na base `Ecommerce_Otimizado`, cria os **9 índices secundários** e executa `EXEC sp_updatestats` para atualizar as estatísticas do otimizador.
 
 ### 6.3. Os Scripts Python de Automação (`scripts/`)
-* **[db.py](file:///c:/Users/MWSS/OneDrive/Desktop/Trabalho-Final-BD2/scripts/db.py):** Centraliza a conexão com o SQL Server (`127.0.0.1:1433`, usuário `sa`, senha `Bd2Trabalho!2026`).
+* **[db.py](file:///c:/Users/MWSS/OneDrive/Desktop/Trabalho-Final-BD2/scripts/db.py):** Centraliza a conexão com o SQL Server (`127.0.0.1:1433`, usuário `sa`, senha padrão `Bd2Trabalho!2026`, sobrescrevível via `.env`).
+* **[smoke_test.py](file:///c:/Users/MWSS/OneDrive/Desktop/Trabalho-Final-BD2/scripts/smoke_test.py):** Valida a conexão `pymssql`, imprime a versão do SQL Server (`@@VERSION`) e testa a captura de `SET STATISTICS IO, TIME ON` e `SET STATISTICS XML ON`.
 * **[generate_data.py](file:///c:/Users/MWSS/OneDrive/Desktop/Trabalho-Final-BD2/scripts/generate_data.py):** Gera os 4 arquivos CSV na pasta `data/` usando `seed=42`. Calcula até o `ValorTotal` de cada pedido somando `Quantidade * PrecoUnitario * (1 - Desconto)` dos seus itens para que o banco seja 100% realista!
-* **[create_schema.py](file:///c:/Users/MWSS/OneDrive/Desktop/Trabalho-Final-BD2/scripts/create_schema.py), [load_baseline.py](file:///c:/Users/MWSS/OneDrive/Desktop/Trabalho-Final-BD2/scripts/load_baseline.py) e [clone_optimized.py](file:///c:/Users/MWSS/OneDrive/Desktop/Trabalho-Final-BD2/scripts/clone_optimized.py):** Executam os scripts SQL `01`, `02` e `03` e conferem se as contagens de linhas e os acentos em português (`Goiânia`, `Móveis`) foram gravados sem erro.
+* **[create_schema.py](file:///c:/Users/MWSS/OneDrive/Desktop/Trabalho-Final-BD2/scripts/create_schema.py), [load_baseline.py](file:///c:/Users/MWSS/OneDrive/Desktop/Trabalho-Final-BD2/scripts/load_baseline.py) e [clone_optimized.py](file:///c:/Users/MWSS/OneDrive/Desktop/Trabalho-Final-BD2/scripts/clone_optimized.py):** Executam os scripts SQL `01`, `02` e `03`. O `load_baseline.py` também converte `clientes.csv` e `produtos.csv` para UTF-16 temporários durante a carga e confere contagens exatas, FKs confiáveis (`is_not_trusted = 0`) e acentos em português (`Goiânia`, `Móveis`).
 * **[queries.py](file:///c:/Users/MWSS/OneDrive/Desktop/Trabalho-Final-BD2/scripts/queries.py):** Guarda o catálogo oficial das 11 consultas (`Q1` a `Q10` e `W1`), com o SQL do Baseline e o SQL do Otimizado.
 * **[metrics.py](file:///c:/Users/MWSS/OneDrive/Desktop/Trabalho-Final-BD2/scripts/metrics.py):** É o "extrator de métricas". Ele intercepta as mensagens que o SQL Server devolve quando ligamos `SET STATISTICS IO, TIME ON` e usa expressões regulares (Regex) para extrair `logical_reads`, `physical_reads`, `cpu_time_ms` e `elapsed_time_ms`. Também captura o plano de execução real em XML (`SET STATISTICS XML ON`) e garante que `W1` sempre rode dentro de `BEGIN TRANSACTION ... ROLLBACK TRANSACTION`.
+* **[collect_baseline.py](file:///c:/Users/MWSS/OneDrive/Desktop/Trabalho-Final-BD2/scripts/collect_baseline.py):** Coleta as métricas iniciais (`results/baseline_initial.json`), informações de espaço e versão (`results/environment_info.json`) e os 11 planos `.sqlplan` em `results/plans/baseline/`.
 * **[apply_optimizations.py](file:///c:/Users/MWSS/OneDrive/Desktop/Trabalho-Final-BD2/scripts/apply_optimizations.py):** Primeiro cria o índice simples temporário em `Pedidos(ClienteID)` para medir e salvar o plano do **Estágio 2 da Q4** (`q4_intermediate_lookup.sqlplan`), e depois aplica os 9 índices finais em `Ecommerce_Otimizado` e salva todos os planos `.sqlplan` em `results/plans/optimized/`.
 * **[run_benchmarks.py](file:///c:/Users/MWSS/OneDrive/Desktop/Trabalho-Final-BD2/scripts/run_benchmarks.py):** Roda as **880 execuções oficiais**:
   - Para cada uma das 11 consultas: faz 2 aquecimentos descartados + **30 rodadas pareadas em Warm Cache** (alternando quem roda primeiro nas rodadas ímpares e pares para não favorecer nenhuma base!) + **10 rodadas pareadas em Cold Cache** (limpando a memória antes de cada execução).
   - Salva tudo em `results/benchmark_runs.csv` e `results/benchmark_runs.json`.
-* **[analyze_results.py](file:///c:/Users/MWSS/OneDrive/Desktop/Trabalho-Final-BD2/scripts/analyze_results.py):** Lê as 880 medições, calcula média, mediana, desvio padrão, intervalo de confiança de 95%, Speedup e aplica Shapiro-Wilk + Teste t ou Wilcoxon, gerando automaticamente a tabela do artigo em LaTeX (`paper/generated/tabela_resultados.tex`) e o resumo em `results/summary_table.csv`.
-* **[generate_charts.py](file:///c:/Users/MWSS/OneDrive/Desktop/Trabalho-Final-BD2/scripts/generate_charts.py) e [generate_plan_diagrams.py](file:///c:/Users/MWSS/OneDrive/Desktop/Trabalho-Final-BD2/scripts/generate_plan_diagrams.py):** Geram as 5 imagens PNG de alta resolução (300 DPI) na pasta `paper/figures/`.
-* **[test_demo_kit.py](file:///c:/Users/MWSS/OneDrive/Desktop/Trabalho-Final-BD2/scripts/test_demo_kit.py):** Testa automaticamente os 4 scripts da demonstração ao vivo (`scripts/demo/01` a `04`) para garantir que nada vai dar erro na frente do professor!
+* **[analyze_results.py](file:///c:/Users/MWSS/OneDrive/Desktop/Trabalho-Final-BD2/scripts/analyze_results.py):** Lê as 880 medições, calcula média, mediana, desvio padrão, intervalo de confiança de 95%, Speedup e aplica Shapiro-Wilk + Teste t ou Wilcoxon, gerando `results/summary_table.csv`, `results/summary_stats.json` e o fragmento LaTeX `paper/generated/tabela_resultados.tex` *(nota: na versão final de `paper/main.tex`, os colegas optaram por uma Tabela 3 compacta escrita manualmente no próprio `.tex`, mantendo `tabela_resultados.tex` e `summary_table.csv` como referência completa com desvios padrão e $p$-valores)*.
+* **[generate_charts.py](file:///c:/Users/MWSS/OneDrive/Desktop/Trabalho-Final-BD2/scripts/generate_charts.py) e [generate_plan_diagrams.py](file:///c:/Users/MWSS/OneDrive/Desktop/Trabalho-Final-BD2/scripts/generate_plan_diagrams.py):** Geram os gráficos PNG de alta resolução (300 DPI) em `results/charts/` e `paper/figures/` (com a ressalva de que `paper/figures/fig5_planos_execucao.png` foi substituído manualmente no artigo pelo vetor `paper/figures/fig5_planos_execucao.pdf`).
+* **[compile_paper.py](file:///c:/Users/MWSS/OneDrive/Desktop/Trabalho-Final-BD2/scripts/compile_paper.py):** Compila `paper/main.tex` com `pdflatex` e `bibtex` (incluindo uma passada extra automática caso o LaTeX peça rerun de referências cruzadas), valida o limite de 10 páginas, `0` *Overfull* e figuras, salvando o relatório em [results/latex_validation.json](file:///c:/Users/MWSS/OneDrive/Desktop/Trabalho-Final-BD2/results/latex_validation.json).
+* **[test_demo_kit.py](file:///c:/Users/MWSS/OneDrive/Desktop/Trabalho-Final-BD2/scripts/test_demo_kit.py) e [scripts/demo/README_CONTINGENCIA.md](file:///c:/Users/MWSS/OneDrive/Desktop/Trabalho-Final-BD2/scripts/demo/README_CONTINGENCIA.md):** Testam automaticamente os 4 scripts da demonstração ao vivo (`scripts/demo/01` a `04`) e documentam os planos de contingência (Planos B e C) para não haver erro na frente do professor!
+
+### 6.4. Artigo, Revisão e Base de Conhecimento (`paper/`, `cerebro/`)
+* **[paper/main.tex](file:///c:/Users/MWSS/OneDrive/Desktop/Trabalho-Final-BD2/paper/main.tex) e [paper/main.pdf](file:///c:/Users/MWSS/OneDrive/Desktop/Trabalho-Final-BD2/paper/main.pdf):** Fonte LaTeX no template da SBC e PDF compilado final (10 páginas). Os commits finais dos colegas adicionaram os nomes completos dos autores, *Keywords*/*Palavras-chave*, a Tabela 1 de ambiente, a Tabela 3 compacta manual, o diagrama vetorial `fig5_planos_execucao.pdf` e uma revisão de estilo/português em todo o texto.
+* **[Paper BD2 pontos a revisar.pdf](file:///c:/Users/MWSS/OneDrive/Desktop/Trabalho-Final-BD2/Paper%20BD2%20pontos%20a%20revisar.pdf):** Cópia com destaques usada pelos colegas durante a revisão de texto antes da versão final de `paper/main.pdf`.
+* **Pasta `cerebro/`:** Guarda a documentação de planejamento/experimento do projeto e a pasta [cerebro/revisor e corretor de texto ptbr/SKILL.md](file:///c:/Users/MWSS/OneDrive/Desktop/Trabalho-Final-BD2/cerebro/revisor%20e%20corretor%20de%20texto%20ptbr/SKILL.md), adicionada durante a revisão de texto em português do artigo.
 
 ---
 
@@ -544,7 +577,7 @@ A equipe de **5 integrantes** foi dividida assim nos roteiros da pasta `slides/`
     3. Quando colocamos `INCLUDE (DataPedido, ValorTotal)` no índice, os pulos sumiram e a leitura despencou para apenas **5 páginas (< 1 ms, -99,94%)**!
 
 #### **Slide 10 (Seção 9 no Beamer) — Evidência Direta nos Planos Físicos Reais (~20 segundos)**
-* **O que está na tela:** A figura com os 4 diagramas dos planos `.sqlplan` ([fig5_planos_execucao.png](file:///c:/Users/MWSS/OneDrive/Desktop/Trabalho-Final-BD2/paper/figures/fig5_planos_execucao.png)).
+* **O que está na tela:** A figura com os 4 diagramas dos planos `.sqlplan` ([fig5_planos_execucao.pdf](file:///c:/Users/MWSS/OneDrive/Desktop/Trabalho-Final-BD2/paper/figures/fig5_planos_execucao.pdf) no artigo; e a versão PNG detalhada [results/charts/fig5_planos_execucao.png](file:///c:/Users/MWSS/OneDrive/Desktop/Trabalho-Final-BD2/results/charts/fig5_planos_execucao.png) no `slides/apresentacao.pdf` já compilado — *atenção: se forem recompilar `slides/apresentacao.tex`, é preciso trocar `.png` por `.pdf` na linha 195 ou copiar a imagem de `results/charts/`*).
 * **Como entender para explicar sem decorar:**
   - Diga que esses diagramas vieram direto do XML do SQL Server: em **(a) Q1** e **(b) Q4** vemos a troca de *Scan* por *Seek* e o sumiço do *Key Lookup*; já em **(c) Q7** vemos a troca de *Hash Match* por *Stream Aggregate*, e em **(d) W1** vemos o operador *Sequence* dividindo o `INSERT` em 4 árvores B+ ao mesmo tempo.
 
