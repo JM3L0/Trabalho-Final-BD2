@@ -24,10 +24,14 @@
 
 \begin{abstract}
 Relational query performance depends on B+ Tree access paths and cost-based execution plans. This paper evaluates indexing, query rewriting, and execution plans on SQL Server 2022 over a 6.25-million-row e-commerce schema. Twin databases (a Baseline without secondary indexes and an Optimized counterpart with nine indexes) are compared across ten read queries and one batch write workload under Warm ($N=30$) and Cold ($N=10$) cache. Selective indexes, covering indexes, sargability, and \texttt{NOT EXISTS} reduced logical reads by up to 99.96\%. Conversely, Q7 showed Batch Mode Hash Aggregation beating Row Mode Stream Aggregation in latency, while batch inserts (W1) added 85.33\% I/O overhead.
+
+\textbf{Keywords:} Indexing, Execution Plans, Query Optimization, SQL Server 2022, B+ Tree.
 \end{abstract}
 
 \begin{resumo}
 O desempenho de consultas em bancos relacionais depende de caminhos de acesso em árvores B+ e planos físicos gerados por otimizadores baseados em custo. Este artigo avalia indexação, reescrita lógica e planos de execução no SQL Server 2022 em uma base de comércio eletrônico com 6,25 milhões de registros. Duas bases gêmeas (\texttt{Ecommerce\_Baseline}, sem índices secundários, e \texttt{Ecommerce\_Otimizado}, com nove índices) são comparadas em dez consultas de leitura e uma carga de escrita em lote sob condições de cache quente (\textit{Warm}, $N=30$) e frio (\textit{Cold}, $N=10$). Índices de cobertura, predicados sargáveis e \texttt{NOT EXISTS} reduziram leituras lógicas em até 99,96\%. Em contrapartida, $Q_7$ revelou menor latência em \textit{Batch Mode} (\textit{Hash Match}) do que em \textit{Row Mode} (\textit{Stream Aggregate}), e $W_1$ elevou o custo de E/S em 85,33\%.
+
+\textbf{Palavras-chave:} Indexação, Planos de Execução, Otimização de Consultas, SQL Server 2022, Árvore B+.
 \end{resumo}
 
 \section{Introdução}
