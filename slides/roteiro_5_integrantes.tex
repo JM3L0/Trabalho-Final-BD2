@@ -1,0 +1,165 @@
+% !TEX program = xelatex
+\documentclass[10pt,a4paper]{article}
+
+\usepackage[top=1.5cm,bottom=1.6cm,left=1.7cm,right=1.7cm]{geometry}
+\usepackage{fontspec}
+\usepackage[brazilian]{babel}
+\usepackage{xcolor}
+\usepackage{booktabs}
+\usepackage{colortbl}
+\usepackage{enumitem}
+\usepackage{fancyhdr}
+\usepackage{titlesec}
+\usepackage{tcolorbox}
+
+\setmainfont{Arial}
+\setsansfont{Arial}
+\setmonofont[Scale=0.88]{Consolas}
+
+\definecolor{InkBlack}{HTML}{111111}
+\definecolor{InkDark}{HTML}{333333}
+\definecolor{GoldAccent}{HTML}{B88623}
+\definecolor{BgSoft}{HTML}{F7F7F7}
+\definecolor{TblHead}{HTML}{222222}
+\definecolor{TblStripe}{HTML}{F3F3F3}
+
+\pagestyle{fancy}
+\fancyhf{}
+\lhead{\small\color{InkDark} Roteiro de Apresentação (15 min — 5 Integrantes, 10 Slides)}
+\rhead{\small\color{InkDark} BD II — UFPI (CSHNB)}
+\cfoot{\small\thepage}
+\renewcommand{\headrulewidth}{0.4pt}
+
+\titleformat{\section}{\Large\bfseries\color{InkBlack}}{}{0pt}{}[\vspace{2pt}\textcolor{GoldAccent}{\titlerule[1.2pt]}]
+\titleformat{\subsection}{\normalsize\bfseries\color{InkBlack}}{}{0pt}{}
+
+\newtcolorbox{fala}{%
+  colback=BgSoft,
+  colframe=GoldAccent,
+  boxrule=0pt,
+  leftrule=2.5pt,
+  arc=2pt,
+  left=8pt, right=8pt, top=6pt, bottom=6pt,
+  fontupper=\small\color{InkBlack}
+}
+
+\begin{document}
+
+\begin{center}
+  {\LARGE\bfseries Roteiro de Apresentação — 15 Minutos (5 Integrantes, 10 Slides)}\\[6pt]
+  {\normalsize\color{InkDark} Análise Experimental de Indexação, Planos de Execução e Otimização de Consultas no Microsoft SQL Server 2022}\\[4pt]
+  {\small\color{InkDark} Arquivos: \texttt{apresentacao\_15min.pdf} e \texttt{apresentacao\_15min.pptx} \quad|\quad 2 slides e 3 min por integrante}
+\end{center}
+
+\vspace{6pt}
+
+\begin{center}
+\small
+\setlength{\tabcolsep}{7pt}
+\renewcommand{\arraystretch}{1.25}
+\begin{tabular}{@{}llclcc@{}}
+  \rowcolor{TblHead}
+  \textbf{\color{white}Integrante} & \textbf{\color{white}Responsável} & \textbf{\color{white}Slides} & \textbf{\color{white}Bloco Temático} & \textbf{\color{white}Duração} & \textbf{\color{white}Acumulado} \\
+  Integrante 1 & Hermeson A. & 1 e 2 & Capa, Introdução e Fundamentação & 3m00s & 03:00 \\
+  \rowcolor{TblStripe}
+  Integrante 2 & João Marcos R. & 3 e 4 & Metodologia, Bases Gêmeas, Índices e Protocolo & 3m00s & 06:00 \\
+  Integrante 3 & Lizzandro W. & 5 e 6 & Resultados em \textit{Warm Cache} (Tab. 3, Fig. 1 e 2) & 3m00s & 09:00 \\
+  \rowcolor{TblStripe}
+  Integrante 4 & Marcos W. & 7 e 8 & Caso Q\textsubscript{4} (\textit{Key Lookup}) e Planos Físicos (\texttt{.sqlplan}) & 3m00s & 12:00 \\
+  Integrante 5 & Raildom R. & 9 e 10 & \textit{Trade-offs}, \textit{Cold Cache}, Conclusão e Referências & 3m00s & 15:00 \\
+\end{tabular}
+\end{center}
+
+\section{Integrante 1 — Hermeson A. (Slides 1 e 2 \enspace|\enspace 00:00 – 03:00)}
+
+\subsection{Slide 1 — Capa (00:00 – 00:35 | 35s)}
+\begin{fala}
+``Boa tarde a todos. Somos alunos do Bacharelado em Sistemas de Informação da UFPI, campus CSHNB em Picos, e vamos apresentar o trabalho \textit{Análise Experimental de Indexação, Planos de Execução e Otimização de Consultas no Microsoft SQL Server 2022}. A apresentação será conduzida pelos cinco integrantes do grupo: eu, Hermeson, seguido por João Marcos, Lizzandro, Marcos e Raildom.''
+\end{fala}
+
+\subsection{Slide 2 — Introdução e Fundamentação (00:35 – 03:00 | 2m25s)}
+\begin{fala}
+``Em bancos relacionais que processam milhões de registros, o maior fator de latência é o custo de entrada e saída e a varredura sequencial de páginas. Mesmo com memória RAM abundante e SSDs rápidos, operações de \textit{Table Scan} ou \textit{Clustered Index Scan} elevam o tempo de resposta, disputam espaço no \textit{buffer pool} e reduzem a capacidade concorrente.
+
+Para enfrentar isso, o projeto físico apoia-se em árvores B+ com páginas de 8 KB. Como os nós internos guardam apenas chaves de roteamento, a árvore mantém altura logarítmica $O(\log_m N)$, permitindo buscas pontuais em 2 a 4 acessos. Cada tabela tem um único índice clusterizado — com os dados ordenados nas folhas — enquanto índices não clusterizados apontam para a chave primária. Quando faltam colunas no índice secundário, ocorrem \textit{Key Lookups} repetidos; para eliminá-los, usamos índices de cobertura com \texttt{INCLUDE}. Em contrapartida, índices exigem manutenção síncrona a cada modificação, causando amplificação de escrita.
+
+No plano lógico e físico, o otimizador por custos depende de predicados sargáveis — isolando a coluna indexada em buscas por prefixo, intervalos semiabertos ou reescrevendo subconsultas com \texttt{NOT EXISTS} — e escolhe entre \textit{Nested Loops}, \textit{Merge Join} e \textit{Hash Match}, além do \textit{Batch Mode on Rowstore}, que processa blocos em lote. Nosso objetivo foi medir esses ganhos e \textit{trade-offs} no SQL Server 2022 em uma base com 6,25 milhões de linhas, avaliando dez leituras (Q\textsubscript{1}–Q\textsubscript{10}) e uma escrita em lote (W\textsubscript{1}) sob cache quente e frio. Passo a palavra ao João Marcos.''
+\end{fala}
+
+\section{Integrante 2 — João Marcos R. (Slides 3 e 4 \enspace|\enspace 03:00 – 06:00)}
+
+\subsection{Slide 3 — Metodologia: Ambiente e Bases Gêmeas (03:00 – 04:30 | 1m30s)}
+\begin{fala}
+``Obrigado, Hermeson. A Tabela 1 mostra o ambiente controlado do experimento: executamos o Microsoft SQL Server 2022 Developer 64-bit em um container Docker Ubuntu 22.04 limitado a 4 GB de RAM, sobre host Windows 11 com Core i5 de 12ª geração, 16 GB de RAM e SSD, tudo orquestrado via Python 3 com \texttt{uv} e \texttt{pymssql}.
+
+Projetamos um esquema normalizado de comércio eletrônico B2C povoado deterministicamente com \texttt{seed 42}: \texttt{Clientes} (200 mil linhas), \texttt{Produtos} (50 mil), \texttt{Pedidos} (1,5 milhão) e \texttt{ItensPedido} (4,5 milhões), somando 6,25 milhões de registros e 400 MB alocados, com cerca de 20\% dos itens tendo desconto maior ou igual a 10,00.
+
+Para garantir comparação justa, atualizamos estatísticas em \texttt{Ecommerce\_Baseline} — que contém apenas as 4 chaves primárias clusterizadas — e clonamos por \texttt{BACKUP} e \texttt{RESTORE} para gerar \texttt{Ecommerce\_Otimizado}. Verificamos integridade referencial confiável (\texttt{is\_not\_trusted = 0}) e paridade absoluta nas 12 estatísticas iniciais antes de criar os índices.''
+\end{fala}
+
+\subsection{Slide 4 — Índices Secundários e Protocolo (04:30 – 06:00 | 1m30s)}
+\begin{fala}
+``A Tabela 2 lista os nove índices secundários criados em \texttt{Ecommerce\_Otimizado} com amostragem estatística de 100\%. Avaliamos quatro estratégias: índice simples (\texttt{IX\_Clientes\_Email}), índices de cobertura com \texttt{INCLUDE} em \texttt{Produtos}, \texttt{Pedidos} e \texttt{ItensPedido}, índice composto \texttt{(Status, DataPedido)} para igualdade e faixa em Q\textsubscript{3}, e o índice filtrado \texttt{IX\_ItensPedido\_Desconto\_Alto} (\texttt{WHERE Desconto >= 10.00}), cobrindo 901.180 linhas.
+
+A carga experimental envolve 10 consultas de leitura (Q\textsubscript{1}–Q\textsubscript{10}) e a inserção em lote de 10.000 itens (W\textsubscript{1}), executada dentro de \texttt{BEGIN TRANSACTION ... ROLLBACK} para preservar exatamente 4,5 milhões de registros nas 880 medições.
+
+Todas as consultas rodaram com \texttt{OPTION (MAXDOP 1)} e literais tipados em dois regimes: \textit{Warm Cache} (N=30 repetições pareadas após 2 aquecimentos) e \textit{Cold Cache} (N=10 após esvaziar \textit{buffer pool} e cache de planos). Aplicamos Shapiro-Wilk ($\alpha = 0{,}05$) para selecionar entre teste \textit{t} pareado e Wilcoxon. Passo a palavra ao Lizzandro.''
+\end{fala}
+
+\section{Integrante 3 — Lizzandro W. (Slides 5 e 6 \enspace|\enspace 06:00 – 09:00)}
+
+\subsection{Slide 5 — Resultados em \textit{Warm Cache} (N = 30) (06:00 – 07:30 | 1m30s)}
+\begin{fala}
+``Obrigado, João Marcos. A Tabela 3 apresenta os resultados medianos em \textit{Warm Cache} (N=30). Em nove das dez consultas de leitura (Q\textsubscript{1}–Q\textsubscript{6} e Q\textsubscript{8}–Q\textsubscript{10}), houve redução estatisticamente significativa ($p < 10^{-4}$) de páginas lidas e tempo de execução. Como o temporizador do SQL Server tem precisão de 1 ms, tempos abaixo de 0,5 ms em Q\textsubscript{1}, Q\textsubscript{4} e Q\textsubscript{6} foram adotados conservadoramente como inferiores a 1 ms para o cálculo do \textit{speedup}.
+
+O maior ganho ocorreu em Q\textsubscript{6} (\texttt{TOP 50} pedidos mais recentes), que caiu de 8.090 para apenas 3 páginas (-99,96\% e mais de 424$\times$ de aceleração), pois a leitura reversa (\texttt{BACKWARD}) em \texttt{IX\_Pedidos\_DataPedido} eliminou a ordenação explícita. Também destacam-se os ganhos de sargabilidade em Q\textsubscript{8} (114,0$\times$) e Q\textsubscript{9} (8,69$\times$). Já Q\textsubscript{7} e W\textsubscript{1} são os contra-exemplos: Q\textsubscript{7} piorou em latência (0,60$\times$) mesmo lendo menos páginas, e W\textsubscript{1} aumentou as leituras em 85,33\%.''
+\end{fala}
+
+\subsection{Slide 6 — E/S Lógica e Dispersão de Latência (07:30 – 09:00 | 1m30s)}
+\begin{fala}
+``Os dois gráficos visualizam esse comportamento. Na Figura 1, em escala logarítmica, as consultas seletivas e ordenadas (Q\textsubscript{1}–Q\textsubscript{4} e Q\textsubscript{6}) reduziram entre 99,58\% e 99,96\% das leituras lógicas. Em Q\textsubscript{8}, trocar \texttt{LIKE N'\%Notebook\%'} por prefixo \texttt{LIKE N'Notebook\%'} (válido pela taxonomia do catálogo) cortou 95,60\% das leituras; em Q\textsubscript{9}, trocar \texttt{YEAR(DataPedido) = 2025} por intervalo semiaberto reduziu 80,66\%. À direita, a barra vermelha de W\textsubscript{1} mostra o salto de 97 mil para 180 mil páginas na escrita.
+
+Na Figura 2, o painel (a) confirma a estabilidade das consultas OLTP otimizadas, todas abaixo de 1,5 ms e com variância mínima. No painel (b), Q\textsubscript{5} trocou dois \textit{Hash Match} por \textit{Merge Join} e \textit{Nested Loops}, caindo de 450 para 12 ms (37,5$\times$), e Q\textsubscript{10} reescrita com \texttt{NOT EXISTS} gerou \textit{Left Anti Semi Join} (370,5 para 219,5 ms). Em contraste, W\textsubscript{1} exibe alta dispersão, com desvio padrão de 853,2 ms. Passo a palavra ao Marcos.''
+\end{fala}
+
+\section{Integrante 4 — Marcos W. (Slides 7 e 8 \enspace|\enspace 09:00 – 12:00)}
+
+\subsection{Slide 7 — Caso Q\textsubscript{4}: Eliminação de \textit{Key Lookup} (09:00 – 10:30 | 1m30s)}
+\begin{fala}
+``Obrigado, Lizzandro. A Figura 3 mostra o experimento em três estágios da consulta Q\textsubscript{4}, que filtra pedidos de uma faixa de clientes (\texttt{ClienteID BETWEEN 1000 AND 1050}) e retorna \texttt{DataPedido} e \texttt{ValorTotal}.
+
+No estágio 1 (\textit{Baseline}), sem índice em \texttt{ClienteID}, o SQL Server faz \textit{Clustered Index Scan} em todas as 8.090 páginas de \texttt{Pedidos}, levando 111 ms.
+
+No estágio 2, com índice simples apenas sobre \texttt{ClienteID}, o otimizador passa a fazer \textit{Index Seek} e o tempo cai para 1 ms. Porém, como \texttt{DataPedido} e \texttt{ValorTotal} não estão no índice, o motor executa 422 operações individuais de \textit{Key Lookup} em \texttt{PK\_Pedidos}, consumindo ainda 1.296 páginas.
+
+No estágio 3, o índice de cobertura \texttt{IX\_Pedidos\_ClienteID\_Cov} anexa essas duas colunas via \texttt{INCLUDE} nas folhas do índice: eliminamos \textit{Key Lookup} e \textit{Nested Loops}, caindo para 5 páginas (-99,94\%) e menos de 1 ms.''
+\end{fala}
+
+\subsection{Slide 8 — Planos Físicos de Execução (.sqlplan) (10:30 – 12:00 | 1m30s)}
+\begin{fala}
+``A Figura 4 comprova essas mudanças diretamente nos planos físicos reais extraídos em XML. Nos painéis superiores: em (a), Q\textsubscript{1} substitui o \textit{Scan} de custo estimado 2,329 por \textit{Index Seek + Key Lookup} de custo 0,007 (6 páginas); em (b), vemos em Q\textsubscript{4} o desaparecimento do \textit{Nested Loops} e do \textit{Key Lookup} ao migrar do índice simples (custo 1,282) para o \textit{Covering Index} (custo 0,004).
+
+Nos painéis inferiores estão as causas estruturais dos dois \textit{trade-offs}: em (c), na consulta Q\textsubscript{7}, a base \textit{Baseline} rodava \textit{Hash Match} em \textbf{Modo Batch}, enquanto a base otimizada mudou para \textit{Stream Aggregate} em \textbf{Modo Row}; e em (d), na carga W\textsubscript{1}, o operador \textit{Sequence} dispara gravações síncronas em 4 árvores B+: a chave primária e os três índices secundários de \texttt{ItensPedido}. Passo a palavra ao Raildom.''
+\end{fala}
+
+\section{Integrante 5 — Raildom R. (Slides 9 e 10 \enspace|\enspace 12:00 – 15:00)}
+
+\subsection{Slide 9 — \textit{Trade-offs} e Cache: \textit{Warm} vs. \textit{Cold} (12:00 – 13:45 | 1m45s)}
+\begin{fala}
+``Obrigado, Marcos. A Figura 5 compara os regimes \textit{Warm} (N=30) e \textit{Cold} (N=10) em escala logarítmica e explica os dois \textit{trade-offs} centrais. Primeiro, em Q\textsubscript{7}: o índice \texttt{IX\_Pedidos\_Status\_Cov} reduziu leituras em 30,06\% (8.090 para 5.658 páginas), mas o tempo subiu de 217 para 364 ms em \textit{Warm} (0,60$\times$) e de 402 para 685 ms em \textit{Cold}. O atributo \texttt{ActualExecutionMode} mostrou que, guiado pelo menor custo estimado (6,728 contra 12,640), o otimizador trocou o motor vetorizado \textit{Batch Mode on Rowstore} pelo \textit{Row Mode} tupla a tupla sob \texttt{MAXDOP 1}.
+
+Segundo, em W\textsubscript{1}: atualizar quatro árvores B+ — inclusive o índice filtrado, que indexou 1.964 das 10 mil linhas inseridas — elevou as leituras em +85,33\% no \textit{Warm} e em +264,73\% no \textit{Cold Cache}, dobrando a latência de 502,0 para 1.098,5 ms (0,46$\times$).
+
+Por fim, mesmo com \texttt{physical\_reads >= 1} em todas as 220 execuções frias, as consultas de leitura indexadas mantiveram forte vantagem sobre o \textit{Baseline} frio, como Q\textsubscript{1} (12,6$\times$) e Q\textsubscript{5} (4,33$\times$).''
+\end{fala}
+
+\subsection{Slide 10 — Conclusão e Referências (13:45 – 15:00 | 1m15s)}
+\begin{fala}
+``Concluindo, nossos experimentos em 6,25 milhões de registros no SQL Server 2022 comprovam que índices B+ bem projetados e reescrita sargável reduzem leituras lógicas em até 99,96\% (Q\textsubscript{6}), zeram \textit{Key Lookups} (Q\textsubscript{4}) e aceleram junções e filtros em dezenas de vezes.
+
+Porém, os dados mostram que mais índices nem sempre significam menor latência global: cada índice secundário cobra manutenção síncrona na escrita (+85,33\% em W\textsubscript{1}) e decisões baseadas em custo podem perder o ganho do \textit{Batch Mode}, elevando a latência em 67,7\% (Q\textsubscript{7}).
+
+Como limitações do estudo, registramos a execução serial com \texttt{MAXDOP 1} em container único sobre o mesmo SSD do hospedeiro, sujeito ao cache do sistema de arquivos nos testes frios. Abaixo listamos as referências que fundamentam o trabalho, incluindo Comer, Selinger, Graefe, Silberschatz, Elmasri, Ramakrishnan, Chaudhuri e a documentação oficial da Microsoft. Muito obrigado pela atenção!''
+\end{fala}
+
+\end{document}
