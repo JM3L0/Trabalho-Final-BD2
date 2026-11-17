@@ -13,7 +13,7 @@
 
 \title{Análise Experimental de Indexação, Planos de Execução e\\ Otimização de Consultas no Microsoft SQL Server 2022}
 
-\author{Hermeson A., João Marcos R., Lizzandro W.,\\ Marcos W., Raildom R.\thanks{Projeto final da disciplina de Banco de Dados II (2026.2), ministrada pelo Prof. Dennis Sávio.}}
+\author{Hermeson A., João Marcos R., Lizzandro W.,\\ Marcos W., Raildom R.}
 
 \address{Curso de Bacharelado em Sistemas de Informação\\
   Universidade Federal do Piauí (UFPI) -- CSHNB -- Picos -- PI -- Brasil}
@@ -23,22 +23,24 @@
 \maketitle
 
 \begin{abstract}
-Relational query performance depends on B+ Tree access paths and cost-based execution plans. This paper evaluates indexing, query rewriting, and execution plans on SQL Server 2022 over a 6.25-million-row e-commerce schema. Twin databases (a Baseline without secondary indexes and an Optimized counterpart with nine indexes) are compared across ten read queries and one batch write workload under Warm ($N=30$) and Cold ($N=10$) cache. Selective indexes, covering indexes, sargability, and \texttt{NOT EXISTS} reduced logical reads by up to 99.96\% ($>424\times$ speedup). Conversely, Q7 showed Batch Mode Hash Aggregation beating Row Mode Stream Aggregation in latency, while batch inserts (W1) added 85.33\% I/O overhead.
+Relational query performance depends on B+ Tree access paths and cost-based execution plans. This paper evaluates indexing, query rewriting, and execution plans on SQL Server 2022 over a 6.25-million-row e-commerce schema. Twin databases (a Baseline without secondary indexes and an Optimized counterpart with nine indexes) are compared across ten read queries and one batch write workload under Warm ($N=30$) and Cold ($N=10$) cache. Selective indexes, covering indexes, sargability, and \texttt{NOT EXISTS} reduced logical reads by up to 99.96\%. Conversely, Q7 showed Batch Mode Hash Aggregation beating Row Mode Stream Aggregation in latency, while batch inserts (W1) added 85.33\% I/O overhead.
 \end{abstract}
 
 \begin{resumo}
-O desempenho de consultas em bancos relacionais depende de caminhos de acesso em árvores B+ e planos físicos gerados por otimizadores baseados em custo. Este artigo avalia indexação, reescrita lógica e planos de execução no SQL Server 2022 em uma base de comércio eletrônico com 6,25 milhões de registros. Duas bases gêmeas (Baseline, sem índices secundários, e Otimizada, com nove índices) são comparadas em dez consultas de leitura e uma carga de escrita em lote sob \textit{Warm} ($N=30$) e \textit{Cold} ($N=10$) \textit{cache}. Índices de cobertura, predicados sargáveis e \texttt{NOT EXISTS} reduziram leituras lógicas em até 99,96\% ($>424\times$). Em contrapartida, Q7 revelou menor latência em \textit{Batch Mode} (\textit{Hash Match}) que em \textit{Row Mode} (\textit{Stream Aggregate}), e W1 elevou o custo de E/S em 85,33\%.
+O desempenho de consultas em bancos relacionais depende de caminhos de acesso em árvores B+ e planos físicos gerados por otimizadores baseados em custo. Este artigo avalia indexação, reescrita lógica e planos de execução no SQL Server 2022 em uma base de comércio eletrônico com 6,25 milhões de registros. Duas bases gêmeas (\texttt{Ecommerce\_Baseline}, sem índices secundários, e \texttt{Ecommerce\_Otimizado}, com nove índices) são comparadas em dez consultas de leitura e uma carga de escrita em lote sob condições de cache quente (\textit{Warm}, $N=30$) e frio (\textit{Cold}, $N=10$). Índices de cobertura, predicados sargáveis e \texttt{NOT EXISTS} reduziram leituras lógicas em até 99,96\%. Em contrapartida, $Q_7$ revelou menor latência em \textit{Batch Mode} (\textit{Hash Match}) do que em \textit{Row Mode} (\textit{Stream Aggregate}), e $W_1$ elevou o custo de E/S em 85,33\%.
 \end{resumo}
 
 \section{Introdução}
 
 Em Sistemas Gerenciadores de Bancos de Dados (SGBDs) relacionais que processam milhões de registros, o custo de entrada e saída (E/S) em disco e a varredura sequencial de páginas constituem os principais fatores de latência. Mesmo em ambientes com memória principal abundante e unidades de estado sólido (SSD), operações de leitura integral de tabelas (\textit{Table} ou \textit{Clustered Index Scan}) elevam o tempo de resposta, disputam espaço no \textit{buffer pool} e reduzem a capacidade de atendimento concorrente \cite{silberschatz:20,ramakrishnan:03}.
 
-A mitigação desses gargalos envolve duas frentes complementares: o projeto físico por meio de árvores B+ e a otimização de consultas baseada em custos (\textit{Cost-Based Optimization}) \cite{selinger:79,chaudhuri:98}. Contudo, índices secundários exigem espaço em disco, estatísticas atualizadas e manutenção síncrona a cada inserção, alteração ou exclusão (\textit{write amplification}), onerando operações OLTP \cite{comer:79,elmasri:16}. Paralelamente, predicados não sargáveis (\textit{Search ARGument ABLE}) impedem o uso de índices existentes, forçando a varredura completa das tabelas.
+A mitigação desses gargalos envolve duas frentes complementares: o projeto físico por meio de árvores B+ e a otimização de consultas baseada em custos (\textit{Cost-Based Optimization}) \cite{selinger:79,chaudhuri:98}. Contudo, índices secundários exigem espaço em disco, estatísticas atualizadas e manutenção síncrona a cada modificação (\textit{write amplification}), o que onera operações OLTP \cite{comer:79,elmasri:16}. Paralelamente, predicados não sargáveis (\textit{Search ARGument ABLE}) impedem o uso de índices existentes, forçando a varredura completa das tabelas.
 
-Este trabalho avalia experimentalmente estratégias de indexação, reescrita SQL e operadores físicos no Microsoft SQL Server 2022. Em uma base de comércio eletrônico B2C com 6.250.000 registros, estruturaram-se duas bases gêmeas: \textit{Ecommerce\_Baseline} (apenas chaves primárias clusterizadas) e \texttt{Ecommerce\_Otimizado} (nove índices secundários). O estudo apresenta: (i) testes reprodutíveis com onze cargas de trabalho ($Q_1$--$Q_{10}$ e $W_1$) sob \textit{Warm Cache} ($N=30$) e \textit{Cold Cache} ($N=10$); (ii) isolamento em três etapas do custo de \textit{Key Lookup} e sua eliminação com a cláusula \texttt{INCLUDE}; e (iii) análise empírica de amplificação de escrita ($W_1$) e da inversão de latência entre \textit{Batch Mode on Rowstore} e \textit{Row Mode} em $Q_7$. A Seção~2 revisa a fundamentação teórica; a Seção~3 descreve a metodologia; a Seção~4 discute os resultados obtidos; e a Seção~5 sintetiza as conclusões.
+Este trabalho avalia experimentalmente estratégias de indexação, reescrita SQL e operadores físicos no Microsoft SQL Server 2022. Em uma base de comércio eletrônico B2C com 6.250.000 registros, estruturaram-se duas bases gêmeas: \texttt{Ecommerce\_Baseline} (apenas chaves primárias clusterizadas) e \texttt{Ecommerce\_Otimizado} (nove índices secundários). O estudo apresenta: (i) testes reprodutíveis com onze cargas de trabalho ($Q_1$--$Q_{10}$ e $W_1$) sob \textit{Warm Cache} ($N=30$) e \textit{Cold Cache} ($N=10$); (ii) isolamento em três etapas do custo de \textit{Key Lookup} e sua eliminação com a cláusula \texttt{INCLUDE}; e (iii) análise empírica de amplificação de escrita ($W_1$) e da inversão de latência entre \textit{Batch Mode on Rowstore} e \textit{Row Mode} em $Q_7$. A Seção~2 revisa a fundamentação teórica; a Seção~3 descreve a metodologia; a Seção~4 discute os resultados obtidos; e a Seção~5 sintetiza as conclusões.
 
 \section{Referencial Teórico}
+
+Esta seção revisa a base teórica sobre estruturas de indexação e otimização de consultas em SGBDs relacionais. Abordam-se a organização das árvores B+ e os critérios de seleção de planos físicos pelo otimizador de consultas por custo.
 
 \subsection{Árvores B+ e Estratégias de Indexação}
 
@@ -48,11 +50,13 @@ Nos índices clusterizados (\textit{Clustered Index}), os nós folha da árvore 
 
 Quando uma consulta requisita colunas não contempladas no índice secundário utilizado, o motor executa o operador \textit{Key Lookup} (junção em laço aninhado contra a árvore clusterizada) para cada linha qualificada. Sob seletividade moderada, milhares de acessos avulsos por \textit{Key Lookup} multiplicam as leituras lógicas, fazendo com que o otimizador prefira uma varredura integral (\textit{Clustered Index Scan}). Para eliminar essa sobrecarga, adota-se o índice de cobertura (\textit{Covering Index}), que anexa colunas complementares ao nível folha por meio da cláusula \texttt{INCLUDE}, atendendo filtros e projeções diretamente no índice secundário sem consultas adicionais à tabela base \cite{silberschatz:20}.
 
-Duas outras variantes relevantes são os índices compostos e os índices filtrados. Em chaves compostas $(K_1, K_2)$, a ordem das colunas determina o acesso: os registros são ordenados por $K_1$ e, para valores idênticos de $K_1$, por $K_2$. Portanto, consultas com igualdade em $K_1$ e intervalo em $K_2$ executam busca contígua (\textit{Index Seek}), ao passo que a inversão das colunas forçaria varreduras parciais do índice \cite{ramakrishnan:03}. Os índices filtrados (\texttt{CREATE INDEX ... WHERE}) restringem as entradas ao subconjunto que satisfaz um predicado seletivo, reduzindo o volume em disco, a altura da árvore e o custo de manutenção \cite{microsoft:22}. Por outro lado, comandos \texttt{INSERT}, \texttt{UPDATE} e \texttt{DELETE} exigem atualização síncrona de todas as árvores B+ afetadas, aumentando leituras lógicas, registros em log de transações e ocorrências de divisões de página (\textit{page splits}).
+Duas outras variantes relevantes são os índices compostos e os índices filtrados. Em chaves compostas $(K_1, K_2)$, a ordem das colunas determina o acesso: os registros são ordenados por $K_1$ e, para valores idênticos de $K_1$, por $K_2$. Portanto, consultas com igualdade em $K_1$ e intervalo em $K_2$ executam busca contígua (\textit{Index Seek}), ao passo que a inversão das colunas forçaria varreduras parciais do índice \cite{ramakrishnan:03}. Os índices filtrados (\texttt{CREATE INDEX ... WHERE}) restringem as entradas ao subconjunto que satisfaz um predicado seletivo, reduzindo o volume em disco, a altura da árvore e o custo de manutenção \cite{microsoft:22}. Por outro lado, comandos de modificação de dados exigem atualização síncrona de todas as árvores B+ afetadas, o que eleva as leituras lógicas, o volume de \textit{log} e a ocorrência de divisões de página (\textit{page splits}).
 
 \subsection{Otimização Baseada em Custos e Operadores Físicos}
 
-Desde os fundamentos do System~R \cite{selinger:79} até arquiteturas como Volcano e Cascades \cite{graefe:93,chaudhuri:98}, a compilação de uma consulta SQL compreende análise sintática, normalização lógica e seleção do plano físico com menor custo estimado de E/S e CPU. Para viabilizar a substituição de varreduras lineares $O(N)$ por buscas em árvore $O(\log N + k)$ (\textit{Index Seek}), os predicados devem ser sargáveis, mantendo a coluna indexada isolada no operador de comparação. Expressões como \texttt{YEAR(DataPedido) = 2025} ou \texttt{LIKE N'\%Notebook\%'} impedem a navegação direta na árvore B+ por exigirem avaliação linha a linha, enquanto intervalos semiabertos (\texttt{>= '2025-01-01' AND < '2026-01-01'}) e buscas por prefixo (\texttt{LIKE N'Notebook\%'}) habilitam a busca direta. De modo análogo, subconsultas correlacionadas agregadas podem ser reescritas com \texttt{NOT EXISTS}, viabilizando planos mais enxutos com \textit{Left Anti Semi Join}.
+A compilação de consultas em SGBDs relacionais fundamenta-se nos princípios de otimização por custo formulados no System~R e consolidados em arquiteturas como Volcano e Cascades \cite{selinger:79,graefe:93,chaudhuri:98}. O processo compreende análise sintática, normalização lógica e estimativa de custos de CPU e E/S para selecionar o plano físico mais eficiente.
+
+Para substituir varreduras lineares $O(N)$ por buscas em árvore $O(\log N + k)$ (\textit{Index Seek}), os predicados devem ser sargáveis (\textit{Search ARGument ABLE}), mantendo a coluna indexada isolada no operador relacional. Expressões como \texttt{YEAR(DataPedido) = 2025} ou curingas iniciais (\texttt{LIKE N'\%Notebook\%'}) impedem a navegação direta na árvore B+ e forçam a avaliação linha a linha; já intervalos semiabertos (\texttt{DataPedido >= '2025-01-01'} e \texttt{< '2026-01-01'}) e buscas por prefixo (\texttt{LIKE N'Notebook\%'}) habilitam o acesso contíguo no índice. De modo análogo, subconsultas correlacionadas agregadas podem ser reescritas com \texttt{NOT EXISTS}, viabilizando planos mais enxutos com \textit{Left Anti Semi Join}.
 
 A seleção de junções envolve três algoritmos físicos clássicos \cite{graefe:93,ramakrishnan:03}: (i) \textit{Nested Loops Join}, eficiente quando a entrada externa possui poucas tuplas e a interna dispõe de índice seletivo; (ii) \textit{Merge Join}, de complexidade linear quando ambas as entradas chegam ordenadas pelas chaves da junção; e (iii) \textit{Hash Match Join}, indicado para volumes elevados sem ordenação prévia mediante construção de tabela de dispersão em memória, sujeita a concessão de memória (\textit{memory grant}) e transbordo para o \texttt{tempdb}.
 
@@ -60,17 +64,47 @@ No processamento moderno do SQL Server, destaca-se o processamento em lote sobre
 
 \section{Metodologia Experimental}
 
+Esta seção detalha o procedimento adotado para avaliar os índices e os planos de execução em ambiente controlado. Apresentam-se a infraestrutura utilizada, a estratégia de bases gêmeas, a carga de trabalho e o protocolo estatístico.
+
 \subsection{Ambiente Computacional, Esquema e Bases Gêmeas}
 
-Todos os experimentos foram conduzidos em ambiente conteinerizado reprodutível sobre \textit{host} Windows~11 Home Single Language equipado com processador Intel Core i5-1235U (12ª geração, 10 núcleos / 12 threads), 15,71~GB de RAM e armazenamento SSD. O SGBD avaliado foi o \textbf{Microsoft SQL Server 2022 RTM-CU28} (versão 16.0.4325.4, \textit{Developer Edition} 64-bit) executando em container Docker (Ubuntu 22.04.5 LTS) com limite de 4~GB de memória. A orquestração em Python 3 (gerenciada via \texttt{uv}) conectou-se ao motor por meio da biblioteca \texttt{pymssql}.
+Todos os experimentos foram conduzidos em ambiente conteinerizado e reprodutível. A Tabela~\ref{tab:ambiente} detalha a configuração de hardware, sistema operacional hospedeiro, versão do SGBD e ambiente de execução utilizados.
 
-Projetou-se um esquema relacional normalizado de comércio eletrônico B2C composto por quatro tabelas povoadas deterministicamente (\textit{seed}~42, com distribuições sintéticas realistas incluindo cerca de 20\% de itens com desconto elevado $\ge 10{,}00$): \texttt{Clientes} (200.000 linhas), \texttt{Produtos} (50.000 linhas), \texttt{Pedidos} (1.500.000 linhas) e \texttt{ItensPedido} (4.500.000 linhas), totalizando 6.250.000 registros (400~MB alocados na base, com 259.064~KB em dados e 272.216~KB reservados) sob modelo de recuperação \texttt{SIMPLE}.
-
-Após a carga massiva e atualização de estatísticas (\texttt{sp\_updatestats}) em \texttt{Ecommerce\_Baseline}, dotada unicamente das quatro chaves primárias clusterizadas, realizou-se \texttt{BACKUP} e \texttt{RESTORE} com isolamento de arquivos para gerar a base gêmea \texttt{Ecommerce\_Otimizado}. Verificou-se integridade referencial confiável (\texttt{is\_not\_trusted = 0}) e paridade absoluta nas 12 estatísticas iniciais entre ambas as bases antes da criação dos nove índices secundários resumidos na Tabela~\ref{tab:indices}.
-
-\begin{table}[ht]
+\begin{table}[htbp]
 \centering
-\caption{Índices secundários não clusterizados implantados exclusivamente em \texttt{Ecommerce\_Otimizado} (amostragem estatística de 100\% em todos os índices).}
+\caption{Especificações do ambiente de testes experimental.}
+\label{tab:ambiente}
+\scriptsize
+\setlength{\tabcolsep}{6pt}
+\renewcommand{\arraystretch}{1.25}
+\begin{tabular}{|l|l|}
+\hline
+\textbf{Componente} & \textbf{Especificação} \\
+\hline
+Processador (CPU) & Intel Core i5-1235U (12ª geração, 10 núcleos / 12 threads) \\
+\hline
+Memória RAM & 15,71~GB \\
+\hline
+Armazenamento & Unidade de estado sólido (SSD) \\
+\hline
+Sistema Operacional \textit{Host} & Windows 11 Home Single Language \\
+\hline
+Ambiente de Execução & Container Docker (Ubuntu 22.04.5 LTS, limite de 4~GB de RAM) \\
+\hline
+SGBD & Microsoft SQL Server 2022 RTM-CU28 (v16.0.4325.4, \textit{Developer} 64-bit) \\
+\hline
+Orquestração & Python 3 (gerenciador \texttt{uv}, biblioteca \texttt{pymssql}) \\
+\hline
+\end{tabular}
+\end{table}
+
+Projetou-se um esquema relacional normalizado de comércio eletrônico B2C composto por quatro tabelas povoadas deterministicamente (\textit{seed}~42, com distribuições sintéticas incluindo cerca de 20\% de itens com desconto elevado $\ge 10{,}00$): \texttt{Clientes} (200.000 linhas), \texttt{Produtos} (50.000 linhas), \texttt{Pedidos} (1.500.000 linhas) e \texttt{ItensPedido} (4.500.000 linhas), totalizando 6.250.000 registros (400~MB alocados na base, com 259.064~KB em dados e 272.216~KB reservados) sob modelo de recuperação \texttt{SIMPLE}.
+
+Após a carga massiva e a atualização de estatísticas (\texttt{sp\_updatestats}) em \texttt{Ecommerce\_Baseline}, dotada exclusivamente das quatro chaves primárias clusterizadas, realizou-se \texttt{BACKUP} e \texttt{RESTORE} com isolamento de arquivos para gerar a base gêmea \texttt{Ecommerce\_Otimizado}. Verificou-se a integridade referencial (\texttt{is\_not\_trusted = 0}) e paridade absoluta nas 12 estatísticas iniciais entre ambas as bases antes da criação dos nove índices secundários descritos na Tabela~\ref{tab:indices} (com amostragem estatística de 100\% em todos os índices).
+
+\begin{table}[htbp]
+\centering
+\caption{Índices secundários não clusterizados implantados em \texttt{Ecommerce\_Otimizado}.}
 \label{tab:indices}
 \scriptsize
 \setlength{\tabcolsep}{3pt}
@@ -93,107 +127,134 @@ Após a carga massiva e atualização de estatísticas (\texttt{sp\_updatestats}
 
 \subsection{Carga de Trabalho e Protocolo Estatístico}
 
-A carga experimental compreende dez consultas de leitura ($Q_1$--$Q_{10}$) e uma carga de inserção em lote ($W_1$), sumarizadas na Tabela~\ref{tab:workload}. Para isolar o efeito das estruturas de acesso e evitar flutuações de escalonamento paralelo entre threads em uma instância conteinerizada, todas as consultas empregaram \texttt{OPTION (MAXDOP 1)} e literais tipados compatíveis (prevenindo conversões implícitas). Na consulta $Q_4$, capturou-se ainda um estágio intermediário com índice simples \texttt{IX\_Pedidos\_ClienteID} (sem \texttt{INCLUDE}) antes de sua substituição por \texttt{IX\_Pedidos\_ClienteID\_Cov}, quantificando o impacto isolado do \textit{Key Lookup}.
+A carga experimental compreende dez consultas de leitura ($Q_1$--$Q_{10}$) e uma rotina de escrita em lote ($W_1$). As consultas avaliam: busca pontual por chave alternativa com \textit{Lookup} ($Q_1$); busca por faixa de datas coberta por índice ($Q_2$); predicado composto com ordenação ($Q_3$); eliminação de \textit{Key Lookup} via \textit{Covering Index} ($Q_4$); junção de três tabelas substituindo varreduras por \textit{Merge} e \textit{Nested Loops} ($Q_5$); recuperação de \texttt{TOP 50} recentes eliminando ordenação explícita ($Q_6$); agregação por categoria comparando \textit{Batch Mode} e \textit{Row Mode} ($Q_7$); busca textual com prefixo sargável ($Q_8$); filtro anual reescrito para intervalo semiaberto ($Q_9$); e consulta de clientes sem pedidos reescrita com \texttt{NOT EXISTS} ($Q_{10}$). A carga $W_1$ mede o efeito da amplificação de escrita na inserção em lote de 10.000 tuplas em \texttt{ItensPedido}.
 
-\begin{table}[ht]
+Para isolar a influência das estruturas físicas e evitar distorções de concorrência paralela no container, todas as consultas utilizaram a diretiva \texttt{OPTION (MAXDOP 1)} e literais tipados compatíveis, evitando conversões implícitas de tipos. Na consulta $Q_4$, testou-se um estágio intermediário com o índice simples \texttt{IX\_Pedidos\_ClienteID} (sem \texttt{INCLUDE}) antes da implantação de \texttt{IX\_Pedidos\_ClienteID\_Cov}, isolando o custo das operações de \textit{Key Lookup}.
+
+Cada cenário foi executado em dois regimes: (1) \textbf{\textit{Warm Cache}} ($N=30$ repetições pareadas por consulta, precedidas de 2 aquecimentos descartados e com alternância de ordem entre as bases para mitigar variações térmicas e do sistema operacional); e (2) \textbf{\textit{Cold Cache}} ($N=10$ repetições, com execução prévia de \texttt{CHECKPOINT; DBCC DROPCLEANBUFFERS; DBCC FREEPROCCACHE;} para esvaziar o \textit{buffer pool} e o cache de planos). A carga $W_1$ foi envolvida em \texttt{BEGIN TRANSACTION ... ROLLBACK TRANSACTION}, preservando o total de 4.500.000 linhas em \texttt{ItensPedido} em todas as 880 medições. As métricas foram extraídas via \texttt{SET STATISTICS IO, TIME ON} e planos reais via \texttt{SET STATISTICS XML ON}. Na análise estatística, utilizou-se o teste de Shapiro-Wilk sobre as diferenças pareadas ($\alpha = 0{,}05$) para selecionar entre o teste $t$ de Student pareado e o teste não paramétrico de Wilcoxon.
+
+\section{Resultados e Discussão}
+
+Esta seção examina o desempenho obtido nas medições experimentais. Avaliam-se as alterações nas contagens de leituras lógicas e latências sob regime de cache quente e frio, a supressão de operadores de \textit{Key Lookup}, as inversões de desempenho em agregações vetorizadas e a sobrecarga de manutenção de índices.
+
+\subsection{Visão Geral em \textit{Warm Cache} ($N=30$) e Redução de E/S}
+
+Os resultados experimentais sob \textit{Warm Cache} são apresentados na Tabela~\ref{tab:resultados-warm}, que desmembra o comportamento em duas partes: a Tabela~\ref{tab:resultados-warm}a compara o volume de leituras lógicas e a taxa de redução de E/S, enquanto a Tabela~\ref{tab:resultados-warm}b detalha os tempos de execução, a aceleração (\textit{speedup}) e a significância estatística.
+
+\begin{table}[htbp]
 \centering
-\caption{Resumo da carga experimental ($Q_1$--$Q_{10}$ e $W_1$) e transformações aplicadas no cenário otimizado.}
-\label{tab:workload}
+\caption{Desempenho sob \textit{Warm Cache} ($N=30$): (a) Leituras lógicas e redução de E/S; (b) Tempos de execução e significância estatística.}
+\label{tab:resultados-warm}
 \scriptsize
-\setlength{\tabcolsep}{3pt}
-\begin{tabular}{@{}lp{4.1cm}p{5.5cm}r@{}}
+\setlength{\tabcolsep}{3.5pt}
+\textbf{(a) Leituras lógicas e redução de E/S}\\[2pt]
+\begin{tabular}{@{}lp{5.4cm}rrrc@{}}
 \toprule
-\textbf{Cód.} & \textbf{Descrição Funcional} & \textbf{Estratégia Aplicada (Baseline $\rightarrow$ Otimizado)} & \textbf{Linhas} \\
+\textbf{Cód.} & \textbf{Descrição Funcional} & \textbf{Leit. Base} & \textbf{Leit. Otim.} & \textbf{Red. E/S} & \textbf{Linhas} \\
 \midrule
-$Q_1$ & Busca pontual por e-mail & Índice simples (\textit{Scan} $\rightarrow$ \textit{Index Seek + Lookup}) & 1 \\
-$Q_2$ & Faixa restrita de datas & Índice com cobertura (\textit{Scan} $\rightarrow$ \textit{Index Seek}) & 6.028 \\
-$Q_3$ & \texttt{Status} + faixa \texttt{DataPedido} & Índice composto ordenado (\texttt{Status, DataPedido}) & 3.198 \\
-$Q_4$ & Pedidos de um cliente & Eliminação de \textit{Lookup} via \textit{Covering Index} & 422 \\
-$Q_5$ & Junção de 3 tabelas & \textit{Hash Match} duplo $\rightarrow$ \textit{Merge} + \textit{Nested Loops} & 4.965 \\
-$Q_6$ & \texttt{TOP 50} pedidos recentes & Eliminação de \textit{Sort} via leitura reversa & 50 \\
-$Q_7$ & Faturamento por \texttt{Status} & \textit{Hash Match [Batch]} $\rightarrow$ \textit{Stream Agg. [Row]} & 6 \\
-$Q_8$ & Busca textual em catálogo & \texttt{LIKE N'\%Notebook\%'} $\rightarrow$ \texttt{LIKE N'Notebook\%'} & 2.002 \\
-$Q_9$ & Total anual de pedidos (2025) & \texttt{YEAR(Data)=2025} $\rightarrow$ intervalo semiaberto & 1 \\
-$Q_{10}$ & Clientes sem pedidos & Subconsulta correlacionada $\rightarrow$ \texttt{NOT EXISTS} & 10.060 \\
-$W_1$ & Inserção OLTP em lote & Controle de \textit{write amplification} em 3 índices sec. & 10.000 \\
+$Q_1$ & Busca pontual por e-mail & 2.856 & 6 & 99,79\% & 1 \\
+$Q_2$ & Faixa restrita de datas & 8.090 & 34 & 99,58\% & 6.028 \\
+$Q_3$ & \texttt{Status} e faixa de datas & 8.090 & 17 & 99,79\% & 3.198 \\
+$Q_4$ & Pedidos de um cliente & 8.090 & 5 & 99,94\% & 422 \\
+$Q_5$ & Junção de 3 tabelas & 28.818 & 5.295 & 81,63\% & 4.965 \\
+$Q_6$ & \texttt{TOP 50} pedidos recentes & 8.090 & 3 & 99,96\% & 50 \\
+$Q_7$ & Faturamento por \texttt{Status} & 8.090 & 5.658 & 30,06\% & 6 \\
+$Q_8$ & Busca textual em catálogo & 637 & 28 & 95,60\% & 2.002 \\
+$Q_9$ & Total anual de pedidos (2025) & 8.090 & 1.565 & 80,66\% & 1 \\
+$Q_{10}$ & Clientes sem pedidos & 10.946 & 8.252 & 24,61\% & 10.060 \\
+\midrule
+$W_1$ & Inserção OLTP em lote & 97.154 & 180.057 & -85,33\% & 10.000 \\
+\bottomrule
+\end{tabular}
+
+\vspace{0.25cm}
+\textbf{(b) Tempos de execução, aceleração e teste de hipótese}\\[2pt]
+\begin{tabular}{@{}lrrrr@{}}
+\toprule
+\textbf{Cód.} & \textbf{Tempo Base (ms)} & \textbf{Tempo Otim. (ms)} & \textbf{Speedup} & \textbf{$p$-valor} \\
+\midrule
+$Q_1$ & 15,0 $\pm$ 4,4 & $<1$ $\pm$ 0,0 & $>15\times$ & $< 10^{-4}$ \\
+$Q_2$ & 104,5 $\pm$ 96,9 & 1,5 $\pm$ 1,8 & $69{,}7\times$ & $< 10^{-4}$ \\
+$Q_3$ & 87,0 $\pm$ 17,5 & 1,0 $\pm$ 0,6 & $87{,}0\times$ & $< 10^{-4}$ \\
+$Q_4$ & 111,0 $\pm$ 62,9 & $<1$ $\pm$ 0,3 & $>111\times$ & $< 10^{-4}$ \\
+$Q_5$ & 450,0 $\pm$ 19,4 & 12,0 $\pm$ 2,4 & $37{,}5\times$ & $< 10^{-4}$ \\
+$Q_6$ & 424,0 $\pm$ 25,0 & $<1$ $\pm$ 0,0 & $>424\times$ & $< 10^{-4}$ \\
+$Q_7$ & 217,0 $\pm$ 11,8 & 364,0 $\pm$ 36,0 & $0{,}60\times$ & $< 10^{-4}$ \\
+$Q_8$ & 114,0 $\pm$ 3,6 & 1,0 $\pm$ 0,4 & $114{,}0\times$ & $< 10^{-4}$ \\
+$Q_9$ & 226,0 $\pm$ 17,9 & 26,0 $\pm$ 1,8 & $8{,}69\times$ & $< 10^{-4}$ \\
+$Q_{10}$ & 370,5 $\pm$ 34,2 & 219,5 $\pm$ 23,9 & $1{,}69\times$ & $< 10^{-4}$ \\
+\midrule
+$W_1$ & 384,0 $\pm$ 113,9 & 404,0 $\pm$ 853,2 & $0{,}95\times$ & 0,129 \\
 \bottomrule
 \end{tabular}
 \end{table}
 
-Cada cenário foi executado em dois regimes: (1) \textbf{\textit{Warm Cache}} ($N=30$ repetições pareadas por consulta, precedidas de 2 aquecimentos descartados e com alternância de ordem entre as bases por repetição para mitigar deriva térmica/OS); e (2) \textbf{\textit{Cold Cache}} ($N=10$ repetições, executando \texttt{CHECKPOINT; DBCC DROPCLEANBUFFERS; DBCC FREEPROCCACHE;} antes de cada medição para esvaziar o \textit{buffer pool} e o cache de planos). A carga de escrita $W_1$ foi encapsulada em \texttt{BEGIN TRANSACTION ... ROLLBACK TRANSACTION} garantindo contagem intacta de 4.500.000 linhas em \texttt{ItensPedido} e paridade absoluta de \texttt{row\_count} em todas as 880 medições. Extraíram-se métricas diretamente do motor via \texttt{SET STATISTICS IO, TIME ON} e planos reais via \texttt{SET STATISTICS XML ON}. Na inferência estatística, aplicou-se o teste de Shapiro-Wilk sobre as diferenças pareadas ($\alpha = 0{,}05$) para selecionar o teste $t$ de Student pareado (normalidade aceita) ou o teste de Wilcoxon pareado (não-paramétrico).
+Em nove das dez consultas de leitura ($Q_1$--$Q_6$, $Q_8$--$Q_{10}$), a combinação de índices secundários e reescrita SQL reduziu de forma estatisticamente significante ($p < 10^{-4}$) o volume de páginas lidas e o tempo de execução. Como o temporizador interno do SQL Server tem precisão de 1~ms, durações inferiores a 0,5~ms são registradas como 0~ms; essas ocorrências ($Q_1$, $Q_4$ e $Q_6$) foram identificadas como $<1$~ms, calculando-se o \textit{speedup} conservadoramente em relação a 1~ms.
 
-\section{Resultados e Discussão}
-
-\subsection{Visão Geral em \textit{Warm Cache} ($N=30$) e Redução de E/S}
-
-A Tabela~\ref{tab:resultados-warm} consolida os resultados medidos em \textit{Warm Cache} ($N=30$). Em nove das dez consultas de leitura ($Q_1$--$Q_6$, $Q_8$--$Q_{10}$), a combinação de índices seletivos e reescrita SQL reduziu significativamente ($p < 10^{-4}$) tanto o volume de páginas lidas em memória quanto a latência de execução. Como o temporizador interno do SQL Server possui resolução de 1~ms, tempos inferiores a 0,5~ms são reportados como 0~ms pelo SGBD; por transparência, tais casos ($Q_1$, $Q_4$ e $Q_6$) são anotados como $<1$~ms e têm aceleração conservadora expressa em relação ao limite de 1~ms (por exemplo, $>424\times$ em $Q_6$).
-
-\input{generated/tabela_resultados}
-
-Conforme ilustrado na Figura~\ref{fig:leituras-logicas} (escala logarítmica), os maiores ganhos de E/S ocorreram nas consultas seletivas e ordenadas: $Q_6$ caiu de 8.090 para 3 páginas (-99,96\%), eliminando o \textit{Sort} via leitura reversa (\texttt{BACKWARD}) de \texttt{IX\_Pedidos\_DataPedido}; $Q_4$ reduziu 99,94\% (8.090 $\rightarrow$ 5 páginas); $Q_1$ e $Q_3$ em 99,79\%; e $Q_2$ em 99,58\% (8.090 $\rightarrow$ 34 páginas). Em $Q_8$, trocar \texttt{LIKE N'\%Notebook\%'} por \texttt{LIKE N'Notebook\%'} sobre \texttt{IX\_Produtos\_Nome} reduziu leituras em 95,60\% (637 $\rightarrow$ 28 páginas, $114{,}0\times$). Essa reescrita introduz alteração semântica: o curinga inicial busca substrings arbitrárias, enquanto o prefixo limita-se ao início do texto, sendo válido no domínio apenas quando nomes de produtos seguem taxonomia padronizada iniciada pela categoria (caso desta base, com 2.002 linhas idênticas; textos livres exigiriam \textit{Full-Text}). Em $Q_9$, substituir \texttt{YEAR(DataPedido) = 2025} por intervalo semiaberto habilitou \textit{Index Seek} em \texttt{IX\_Pedidos\_DataPedido}, caindo de 8.090 para 1.565 páginas (-80,66\%, $8{,}69\times$).
+Conforme a Figura~\ref{fig:leituras-logicas}, os maiores ganhos de E/S concentraram-se nas consultas seletivas e ordenadas: $Q_6$ reduziu leituras de 8.090 para 3 páginas (-99,96\%), eliminando a operação explícita de \textit{Sort} por meio de leitura reversa (\texttt{BACKWARD}) de \texttt{IX\_Pedidos\_DataPedido}; $Q_4$ obteve redução de 99,94\% (8.090 para 5 páginas); $Q_1$ e $Q_3$ reduziram 99,79\%; e $Q_2$ caiu 99,58\% (8.090 para 34 páginas). Na consulta $Q_8$, a substituição de \texttt{LIKE N'\%Notebook\%'} por \texttt{LIKE N'Notebook\%'} sobre o índice \texttt{IX\_Produtos\_Nome} reduziu as leituras em 95,60\% (de 637 para 28 páginas, com aceleração de $114{,}0\times$). Essa reescrita requer que os nomes sigam taxonomia estruturada pela categoria, o que ocorre no conjunto de dados testado (2.002 linhas coincidentes); para termos em posições arbitrárias, o mecanismo adequado seria o índice \textit{Full-Text}. Em $Q_9$, a troca de \texttt{YEAR(DataPedido) = 2025} por intervalo semiaberto viabilizou o acesso por \textit{Index Seek} em \texttt{IX\_Pedidos\_DataPedido}, diminuindo leituras de 8.090 para 1.565 páginas (-80,66\%, com aceleração de $8{,}69\times$).
 
 \begin{figure}[htbp]
 \centering
-\includegraphics[width=0.73\textwidth]{figures/fig1_leituras_logicas.png}
-\caption{Leituras lógicas medianas em \textit{Warm Cache} ($N=30$, escala logarítmica); redução de até 99,96\% nas consultas de leitura e acréscimo de +85,3\% na escrita $W_1$.}
+\includegraphics[width=0.62\textwidth]{figures/fig1_leituras_logicas.png}
+\caption{Leituras lógicas medianas em \textit{Warm Cache} ($N=30$, escala logarítmica).}
 \label{fig:leituras-logicas}
 \end{figure}
 
-Nas consultas estruturalmente mais complexas ($Q_5$ e $Q_{10}$), os benefícios decorreram da alteração dos algoritmos físicos de junção. Em $Q_5$, o plano Baseline realizava duas varreduras completas em \texttt{Pedidos} (8.090 páginas) e \texttt{ItensPedido} (20.721 páginas) unidas por dois operadores \textit{Hash Match}, totalizando 28.818 páginas e 450,0~ms medianos. Com os índices de cobertura nas chaves estrangeiras, o otimizador substituiu o plano por um \textit{Merge Join} (entre \texttt{Clientes} e \texttt{Pedidos}) acoplado a um \textit{Nested Loops} com busca indexada em \texttt{IX\_ItensPedido\_PedidoID}, derrubando o tempo para 12,0~ms ($37{,}5\times$). Em $Q_{10}$, a reescrita da subconsulta correlacionada agregada para \texttt{NOT EXISTS} converteu o plano de um duplo \textit{Hash Match} + \textit{Filter} (10.946 páginas, 370,5~ms) para um \textit{Merge Join [Left Anti Semi Join]} com \textit{Stream Aggregate} sobre \texttt{IX\_Pedidos\_ClienteID\_Cov} (8.252 páginas, 219,5~ms, $1{,}69\times$). A Figura~\ref{fig:boxplots} detalha a baixa dispersão das latências otimizadas frente aos cenários Baseline.
+Nas consultas $Q_5$ e $Q_{10}$, os ganhos decorreram de modificações nos operadores físicos de junção. Em $Q_5$, a configuração Baseline realizava varreduras completas em \texttt{Pedidos} (8.090 páginas) e \texttt{ItensPedido} (20.721 páginas) conectadas por dois operadores \textit{Hash Match}, somando 28.818 páginas e 450,0~ms medianos. Com os índices de cobertura nas chaves estrangeiras, o otimizador passou a utilizar um \textit{Merge Join} entre \texttt{Clientes} e \texttt{Pedidos} associado a um \textit{Nested Loops} com busca indexada em \texttt{IX\_ItensPedido\_PedidoID}, reduzindo o tempo para 12,0~ms ($37{,}5\times$). Em $Q_{10}$, a reescrita da subconsulta correlacionada com agregação para \texttt{NOT EXISTS} converteu o plano de um duplo \textit{Hash Match} acompanhado de \textit{Filter} (10.946 páginas e 370,5~ms) em um \textit{Merge Join [Left Anti Semi Join]} com \textit{Stream Aggregate} sobre \texttt{IX\_Pedidos\_ClienteID\_Cov} (8.252 páginas e 219,5~ms). A Figura~\ref{fig:boxplots} ilustra a dispersão dos tempos de execução entre as bases.
 
 \begin{figure}[htbp]
 \centering
-\includegraphics[width=0.79\textwidth]{figures/fig2_tempos_execucao_boxplot.png}
-\caption{Distribuição dos tempos de execução em \textit{Warm Cache} ($N=30$) para consultas OLTP seletivas (a) e consultas analíticas/escrita (b).}
+\includegraphics[width=0.65\textwidth]{figures/fig2_tempos_execucao_boxplot.png}
+\caption{Distribuição dos tempos de execução em \textit{Warm Cache} ($N=30$).}
 \label{fig:boxplots}
 \end{figure}
 
 \subsection{Eliminação de \textit{Key Lookup} ($Q_4$) e Planos Físicos}
 
-A Figura~\ref{fig:q4-estagios} comprova empiricamente o papel da cláusula \texttt{INCLUDE} por meio da progressão em três estágios de $Q_4$. No Baseline, o filtro \texttt{WHERE ClienteID BETWEEN 1000 AND 1050} exigia varredura completa das 8.090 páginas de \texttt{Pedidos} (111,0~ms). A criação de um índice simples apenas sobre \texttt{ClienteID} (estágio intermediário) habilitou \textit{Index Seek} retornando 422 linhas, mas forçou 422 operações individuais de \textit{Key Lookup} em \texttt{PK\_Pedidos} para recuperar \texttt{DataPedido} e \texttt{ValorTotal}, gerando 1.296 leituras lógicas (3~páginas por \textit{lookup} somadas à travessia da árvore secundária). Ao substituir o índice por \texttt{IX\_Pedidos\_ClienteID\_Cov} contendo \texttt{INCLUDE (DataPedido, ValorTotal)}, todas as projeções passaram a residir nas folhas do índice secundário: o \textit{Key Lookup} e o \textit{Nested Loops} desapareceram do plano, reduzindo as leituras para 5 páginas (-99,61\% frente ao estágio intermediário e -99,94\% frente ao Baseline) e a latência para $<1$~ms.
+A Figura~\ref{fig:q4-estagios} evidencia o efeito da cláusula \texttt{INCLUDE} na progressão em três estágios de $Q_4$. No Baseline, a condição \texttt{WHERE ClienteID BETWEEN 1000 AND 1050} exigia a varredura das 8.090 páginas de \texttt{Pedidos} (111,0~ms). A criação de índice simples sobre \texttt{ClienteID} (estágio intermediário) habilitou o acesso por \textit{Index Seek} para as 422 linhas retornadas, porém exigiu 422 operações individuais de \textit{Key Lookup} em \texttt{PK\_Pedidos} para obter \texttt{DataPedido} e \texttt{ValorTotal}, totalizando 1.296 leituras lógicas. Com a implantação de \texttt{IX\_Pedidos\_ClienteID\_Cov} incluindo as colunas projetadas, todas as informações foram atendidas nos nós folha do índice secundário: os operadores \textit{Key Lookup} e \textit{Nested Loops} foram eliminados, o que reduziu as leituras para 5 páginas e a latência para menos de 1~ms.
 
 \begin{figure}[htbp]
 \centering
-\includegraphics[width=0.78\textwidth]{figures/fig3_q4_tres_estagios.png}
-\caption{Evolução em três estágios de $Q_4$: eliminação de 422 operações de \textit{Key Lookup} (1.296 para 5 leituras lógicas) via índice de cobertura com \texttt{INCLUDE}.}
+\includegraphics[width=0.65\textwidth]{figures/fig3_q4_tres_estagios.png}
+\caption{Eliminação de \textit{Key Lookup} nos estágios de $Q_4$.}
 \label{fig:q4-estagios}
 \end{figure}
 
-A inspeção direta das árvores de operadores extraídas dos arquivos \texttt{.sqlplan} (Figura~\ref{fig:planos-execucao}) sintetiza os quatro fenômenos arquiteturais centrais observados neste estudo: substituição de \textit{Clustered Scan} por \textit{Seek + Key Lookup} em $Q_1$ (a), remoção do \textit{Key Lookup} em $Q_4$ (b), troca de modo de execução vetorial em $Q_7$ (c) e multiplicação de escrita em $W_1$ (d).
+A análise das árvores de execução extraídas dos arquivos \texttt{.sqlplan} (Figura~\ref{fig:planos-execucao}) ilustra quatro transformações de plano observadas no estudo: a substituição de varredura por busca com \textit{Lookup} em $Q_1$ (a), a eliminação de \textit{Key Lookup} em $Q_4$ (b), a alternância do modo de execução em $Q_7$ (c) e a multiplicação de nós de gravação em $W_1$ (d).
 
 \begin{figure}[htbp]
 \centering
-\includegraphics[width=0.82\textwidth]{figures/fig5_planos_execucao.png}
-\caption{Diagramas comparativos dos planos físicos reais extraídos dos XML (\texttt{ShowPlanXML}) para $Q_1$, $Q_4$, $Q_7$ e $W_1$, com custos estimados e leituras observadas.}
+\includegraphics[width=0.72\textwidth]{figures/fig5_planos_execucao.png}
+\caption{Planos físicos de execução para $Q_1$, $Q_4$, $Q_7$ e $W_1$.}
 \label{fig:planos-execucao}
 \end{figure}
 
 \subsection{Trade-offs: \textit{Batch Mode} vs. \textit{Row Mode} ($Q_7$), Escrita ($W_1$) e Cache}
 
-Dois comportamentos identificados ilustram limitações práticas que projetos de indexação devem considerar:
+Dois comportamentos identificados exemplificam compensações práticas inerentes ao projeto físico:
 
 \begin{enumerate}
-\item \textbf{Inversão de Latência em $Q_7$ (\textit{Batch Mode} vs. \textit{Row Mode}):} Embora o índice de cobertura \texttt{IX\_Pedidos\_Status\_Cov} tenha reduzido as leituras lógicas de 8.090 para 5.658 (-30,06\%) e eliminado o consumo de memória de tabela \textit{hash}, o tempo mediano aumentou de 217,0~ms para 364,0~ms em \textit{Warm Cache} (\textit{speedup} $0{,}60\times$, $p < 10^{-4}$) e de 402,0~ms para 685,0~ms em \textit{Cold Cache} ($0{,}59\times$). A inspeção dos atributos \texttt{ActualExecutionMode} no \texttt{ShowPlanXML} (Figura~\ref{fig:planos-execucao}c) esclarece a causa: no Baseline, o otimizador estimou custo de subárvore de 12,640 usando \textit{Clustered Index Scan} + \textit{Hash Match}, acionando automaticamente o motor vetorizado \textit{Batch Mode on Rowstore} sobre as 1,5 milhão de linhas; na base otimizada, atraído pelo menor custo estimado (6,728) e pela ordenação prévia de \texttt{Status} no índice estreito, escolheu \textit{Index Scan} + \textit{Stream Aggregate}, que operou em \textit{Row Mode} tupla a tupla, acumulando maior sobrecarga de CPU por linha sob \texttt{MAXDOP 1}.
+\item \textbf{Inversão de Latência em $Q_7$ (\textit{Batch Mode} vs. \textit{Row Mode}):} Embora o índice \texttt{IX\_Pedidos\_Status\_Cov} tenha reduzido leituras lógicas de 8.090 para 5.658 (-30,06\%) e dispensado a memória da tabela \textit{hash}, o tempo mediano aumentou de 217,0~ms para 364,0~ms em \textit{Warm Cache} (\textit{speedup} $0{,}60\times$, $p < 10^{-4}$) e de 402,0~ms para 685,0~ms em \textit{Cold Cache} ($0{,}59\times$). A verificação do atributo \texttt{ActualExecutionMode} no plano (Figura~\ref{fig:planos-execucao}c) detalha a causa: no Baseline, o otimizador estimou custo de subárvore de 12,640 empregando \textit{Clustered Index Scan} com \textit{Hash Match}, ativando o motor vetorizado \textit{Batch Mode on Rowstore} sobre 1,5 milhão de linhas. Na base otimizada, guiado pelo menor custo estimado (6,728) e pela ordenação de \texttt{Status}, selecionou \textit{Index Scan} com \textit{Stream Aggregate}, operando em \textit{Row Mode} tupla a tupla com maior sobrecarga de CPU por linha sob \texttt{MAXDOP 1}.
 
-\item \textbf{Amplificação de Escrita em $W_1$:} Na inserção em lote de 10.000 registros em \texttt{ItensPedido}, a base Baseline manteve apenas a árvore clusterizada (\texttt{PK\_ItensPedido}), consumindo 97.154 leituras medianas em \textit{Warm Cache} (77.448,5 em \textit{Cold Cache}). Na base otimizada, o plano exibiu um operador \texttt{Sequence} executando quatro gravações em árvore B+: a inserção clusterizada e três \texttt{Index Insert} secundários (\texttt{IX\_ItensPedido\_PedidoID}, \texttt{IX\_ItensPedido\_ProdutoID} e o índice filtrado \texttt{IX\_ItensPedido\_Desconto\_Alto}, que atuou seletivamente sobre 1.964 das 10.000 tuplas inseridas). Como resultado, as leituras lógicas saltaram para 180.057 em \textit{Warm Cache} (+85,33\%, latência com variância elevada de 404,0 $\pm$ 853,2~ms, $p = 0{,}129$) e para 282.476 em \textit{Cold Cache} (+264,73\%, com tempo subindo de 502,0 para 1.098,5~ms, $0{,}46\times$, $p = 0{,}00195$).
+\item \textbf{Amplificação de Escrita em $W_1$:} Na inserção de 10.000 tuplas em \texttt{ItensPedido}, a base Baseline demandou atualização unicamente na árvore clusterizada (\texttt{PK\_ItensPedido}), resultando em 97.154 leituras medianas em \textit{Warm Cache} (77.448,5 em \textit{Cold Cache}). Na base otimizada, o plano incluiu um operador \texttt{Sequence} com quatro gravações em árvores B+: a chave primária e três índices secundários (\texttt{IX\_ItensPedido\_PedidoID}, \texttt{IX\_ItensPedido\_ProdutoID} e o índice filtrado \texttt{IX\_ItensPedido\_Desconto\_Alto}, que indexou 1.964 tuplas). Com isso, as leituras lógicas subiram para 180.057 em \textit{Warm Cache} (+85,33\%, latência de 404,0 $\pm$ 853,2~ms, $p = 0{,}129$) e para 282.476 em \textit{Cold Cache} (+264,73\%, com tempo médio de 1.098,5~ms frente a 502,0~ms no Baseline, $0{,}46\times$, $p = 0{,}00195$).
 \end{enumerate}
 
-Por fim, a Figura~\ref{fig:warm-cold} contrasta os regimes \textit{Warm} ($N=30$) e \textit{Cold} ($N=10$) para seis consultas representativas. O esvaziamento explícito do \textit{buffer pool} e do cache de planos impôs penalidades de compilação e leitura física: $Q_1$ otimizada passou de $<1$~ms para 3,5~ms (ainda $12{,}6\times$ mais rápida que o Baseline frio de 44,0~ms); $Q_5$ otimizada subiu de 12,0~ms para 237,5~ms devido às leituras aleatórias de páginas frias em \texttt{ItensPedido} (11.927,5 leituras lógicas frias), mantendo aceleração de $4{,}33\times$ frente aos 1.027,5~ms do Baseline frio. Em todas as 220 execuções sob \textit{Cold Cache} registraram-se leituras físicas (\texttt{physical\_reads >= 1}), confirmando transferência real de páginas fora do \textit{buffer pool}.
+A Figura~\ref{fig:warm-cold} compara os regimes \textit{Warm} ($N=30$) e \textit{Cold} ($N=10$) para seis consultas representativas. O esvaziamento do \textit{buffer pool} e do cache de planos resultou em custos adicionais de compilação e leitura física: $Q_1$ otimizada elevou seu tempo de $<1$~ms para 3,5~ms (mantendo aceleração de $12{,}6\times$ sobre os 44,0~ms do Baseline frio); $Q_5$ otimizada subiu de 12,0~ms para 237,5~ms devido ao acesso aleatório a páginas frias em \texttt{ItensPedido} (11.927,5 leituras lógicas frias), registrando ganho de $4{,}33\times$ frente aos 1.027,5~ms do Baseline frio. Em todas as 220 execuções sob \textit{Cold Cache} registraram-se leituras físicas (\texttt{physical\_reads >= 1}), confirmando transferências fora do \textit{buffer pool}.
 
 \begin{figure}[htbp]
 \centering
-\includegraphics[width=0.76\textwidth]{figures/fig4_warm_vs_cold_cache.png}
-\caption{Impacto do estado de cache (\textit{Warm Cache} $N=30$ vs. \textit{Cold Cache} $N=10$) nas consultas representativas em escala logarítmica.}
+\includegraphics[width=0.62\textwidth]{figures/fig4_warm_vs_cold_cache.png}
+\caption{Comparação entre \textit{Warm Cache} e \textit{Cold Cache} em escala logarítmica.}
 \label{fig:warm-cold}
 \end{figure}
 
 \section{Conclusão}
 
-Este estudo demonstrou experimentalmente, em uma base de 6,25 milhões de registros no Microsoft SQL Server 2022, que índices B+ e reescrita lógica reduzem substancialmente o consumo de recursos na maioria das consultas de leitura: reduções de E/S lógica de até 99,96\% ($Q_6$), eliminação de \textit{Key Lookups} com queda de 1.296 para 5 páginas ($Q_4$), substituição de \textit{Hash Joins} por \textit{Merge Join} e \textit{Nested Loops} ($Q_5$, $37{,}5\times$) e recuperação de sargabilidade em predicados textuais ($Q_8$, $114{,}0\times$) e temporais ($Q_9$, $8{,}69\times$).
+Este estudo demonstrou experimentalmente, em uma base de 6,25 milhões de registros no Microsoft SQL Server 2022, que índices B+ e reescrita lógica reduzem substancialmente o consumo de recursos na maioria das consultas de leitura: reduções de E/S lógica de até 99,96\% ($Q_6$), eliminação de \textit{Key Lookups} com queda de 1.296 para 5 páginas ($Q_4$), substituição de \textit{Hash Joins} por \textit{Merge Join} e \textit{Nested Loops} ($Q_5$, aceleração de $37{,}5\times$) e recuperação de sargabilidade em predicados textuais ($Q_8$, $114{,}0\times$) e temporais ($Q_9$, $8{,}69\times$).
 
-Contudo, os dados refutam a suposição de que mais índices ou menor E/S sempre acarretam menor tempo de resposta. A sobrecarga de escrita de +85,33\% em leituras lógicas ($W_1$) comprova que cada índice secundário impõe custo síncrono em cargas de modificação, enquanto o comportamento de $Q_7$ demonstra que otimizadores baseados em custo podem trocar planos vetorizados em \textit{Batch Mode} por agregações escalares em \textit{Row Mode}, degradando a latência em 67,7\% apesar da economia de 30\% em páginas lidas.
+Contudo, os dados comprovam que um número maior de índices nem sempre resulta em menor latência global. O aumento de +85,33\% em leituras lógicas na escrita ($W_1$) confirma que cada índice secundário impõe penalidade de manutenção síncrona em cargas de modificação. Além disso, o comportamento em $Q_7$ demonstra que estimativas baseadas em custo podem preferir agregações escalares em \textit{Row Mode} a planos vetorizados em \textit{Batch Mode}, elevando a latência em 67,7\% mesmo com redução de 30\% no total de páginas lidas.
 
-Como limitações da validade experimental (\textit{threats to validity}), destaca-se que os testes foram conduzidos sob \texttt{MAXDOP 1} em container único no mesmo disco SSD do sistema hospedeiro (sujeito ao cache de sistema de arquivos do sistema operacional durante \textit{Cold Cache}). Como trabalhos futuros, sugere-se avaliar planos paralelos multi-thread, índices colunares (\textit{Columnstore}) para agregações semelhantes a $Q_7$ e cargas concorrentes combinando leitura e escrita simultâneas.
+Como limitações da avaliação experimental, ressalta-se o uso de \texttt{MAXDOP 1} em container único sobre o mesmo SSD do hospedeiro, sujeito ao cache do sistema de arquivos durante os testes frios. Trabalhos futuros podem investigar o comportamento sob paralelismo multi-thread, o uso de índices colunares (\textit{Columnstore}) para consultas com padrão analítico semelhante a $Q_7$ e cargas simultâneas de leitura e escrita concorrentes.
 
 \bibliographystyle{sbc}
 \bibliography{sbc-template}
