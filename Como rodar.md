@@ -1,15 +1,3 @@
-# Trabalho Final — Banco de Dados II (UFPI 2026.2)
-
-Estudo experimental de utilizacao de indices, planos de execucao e otimizacao de consultas no **Microsoft SQL Server 2022 Developer Edition** (via Docker), com analise estatistica automatizada em Python (`uv`), artigo cientifico no template da SBC em LaTeX (maximo de 10 paginas) e kit de demonstracao pratica para apresentacao oral de 20 minutos.
-
-* **Instituicao:** Universidade Federal do Piaui (UFPI) — Campus Senador Helvidio Nunes de Barros (Picos - PI)
-* **Curso:** Bacharelado em Sistemas de Informacao
-* **Disciplina:** Banco de Dados II (Periodo 2026.2)
-* **Professor:** Dennis Savio
-* **Equipe:** Hermeson A., Joao Marcos R., Lizzandro W., Marcos W., Raildom R.
-
----
-
 ## 1. Visao Geral da Arquitetura
 
 O projeto adota uma metodologia cientifica rigorosa baseada em **duas bases gemeas na mesma instancia**:
