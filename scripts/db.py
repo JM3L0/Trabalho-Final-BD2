@@ -47,13 +47,44 @@ def get_connection(
 ) -> pymssql.Connection:
     """Abre conexao pymssql para o banco informado."""
     cfg = load_db_config()
-    return pymssql.connect(
-        server=cfg.host,
-        port=cfg.port,
-        user=cfg.user,
-        password=cfg.password,
-        database=database,
-        autocommit=autocommit,
-        timeout=timeout,
-        charset="UTF-8",
-    )
+    try:
+        return pymssql.connect(
+            server=cfg.host,
+            port=cfg.port,
+            user=cfg.user,
+            password=cfg.password,
+            database=database,
+            autocommit=autocommit,
+            timeout=timeout,
+            charset="UTF-8",
+        )
+    except pymssql.OperationalError as exc:
+        # No SQL Server, tentar conectar diretamente a um banco inexistente gera erro 18456 (Login failed).
+        # Validamos se o banco realmente existe conectando em master para emitir mensagem amigavel.
+        if database != "master" and "18456" in str(exc):
+            try:
+                with pymssql.connect(
+                    server=cfg.host,
+                    port=cfg.port,
+                    user=cfg.user,
+                    password=cfg.password,
+                    database="master",
+                    autocommit=True,
+                    timeout=5,
+                    charset="UTF-8",
+                ) as master_conn:
+                    with master_conn.cursor() as cur:
+                        cur.execute("SELECT COUNT(*) FROM sys.databases WHERE name = %s;", (database,))
+                        if cur.fetchone()[0] == 0:
+                            raise RuntimeError(
+                                f"\n[ERRO DE CONEXAO] O banco de dados '{database}' ainda nao foi criado!\n"
+                                f"No SQL Server, tentar conectar em uma base inexistente retorna 'Login failed for user sa' (18456).\n"
+                                f"Para resolver, execute os passos anteriores do pipeline na ordem correta:\n"
+                                f"  - Se for 'Ecommerce_Baseline': execute 'python scripts/create_schema.py' e 'python scripts/load_baseline.py'\n"
+                                f"  - Se for 'Ecommerce_Otimizado': execute o Passo 6 antes deste: 'python scripts/clone_optimized.py'\n"
+                            ) from exc
+            except RuntimeError:
+                raise
+            except Exception:
+                pass
+        raise
