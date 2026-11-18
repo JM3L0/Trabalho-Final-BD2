@@ -9,6 +9,7 @@ import os
 import shutil
 import subprocess
 import sys
+import time
 import xml.etree.ElementTree as ET
 from dataclasses import dataclass
 from pathlib import Path
@@ -18,7 +19,7 @@ ROOT_DIR = Path(__file__).resolve().parent
 if str(ROOT_DIR) not in sys.path:
     sys.path.insert(0, str(ROOT_DIR))
 
-from scripts.db import RESULTS_DIR, get_connection, load_db_config
+from scripts.db import DATA_DIR, RESULTS_DIR, get_connection, load_db_config
 from scripts.metrics import (
     SHOWPLAN_NS,
     RunMetrics,
@@ -143,6 +144,9 @@ class DemoConfig:
     offline_mode: bool = False
     cache_mode: str = "warm"  # "warm" | "cold"
     sql_version: str = ""
+    started_container: bool = False
+    keep_up: bool = False
+    no_docker: bool = False
 
 
 def fmt_int(value: int | float) -> str:
@@ -420,6 +424,227 @@ def check_live_environment() -> tuple[bool, str, list[str]]:
         return False, "", lines
 
 
+def detect_compose_command() -> list[str] | None:
+    """Retorna o comando Docker Compose disponivel (v2 ou legado)."""
+    if not shutil.which("docker"):
+        return None
+    v2 = subprocess.run(
+        ["docker", "compose", "version"],
+        cwd=ROOT_DIR,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    if v2.returncode == 0:
+        return ["docker", "compose"]
+    if shutil.which("docker-compose"):
+        return ["docker-compose"]
+    return None
+
+
+def is_docker_daemon_ready() -> tuple[bool, str]:
+    """Verifica se a CLI Docker e o daemon/Docker Desktop estao ativos."""
+    if not shutil.which("docker"):
+        return False, "Comando 'docker' nao encontrado no PATH."
+    res = subprocess.run(
+        ["docker", "info"],
+        cwd=ROOT_DIR,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    if res.returncode != 0:
+        detail = (res.stderr or res.stdout or "").strip().splitlines()
+        msg = detail[-1] if detail else "Docker daemon nao esta em execucao."
+        return False, f"Docker indisponivel (abra o Docker Desktop / servico docker): {msg}"
+    return True, "Docker ativo."
+
+
+def is_container_running() -> bool:
+    """Verifica se o container bd2_sqlserver ja esta em execucao."""
+    if not shutil.which("docker"):
+        return False
+    res = subprocess.run(
+        ["docker", "ps", "--filter", "name=^/bd2_sqlserver$", "--format", "{{.Status}}"],
+        cwd=ROOT_DIR,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    return res.returncode == 0 and bool(res.stdout.strip())
+
+
+def start_container() -> tuple[bool, str]:
+    """Sobe o container SQL Server 2022 via docker compose up -d --wait."""
+    daemon_ok, daemon_msg = is_docker_daemon_ready()
+    if not daemon_ok:
+        return False, daemon_msg
+
+    compose_cmd = detect_compose_command()
+    if not compose_cmd:
+        return False, "Docker Compose nao encontrado ('docker compose' ou 'docker-compose')."
+
+    DATA_DIR.mkdir(parents=True, exist_ok=True)
+    if os.name != "nt":
+        try:
+            DATA_DIR.chmod(0o777)
+        except OSError:
+            pass
+
+    print(Ansi.style("Subindo container bd2_sqlserver (docker compose up -d --wait)...", Ansi.CYAN, Ansi.BOLD))
+    res = subprocess.run(
+        [*compose_cmd, "up", "-d", "--wait"],
+        cwd=ROOT_DIR,
+        check=False,
+    )
+    if res.returncode != 0:
+        return False, f"Falha ao executar {' '.join(compose_cmd)} up -d --wait (codigo {res.returncode})."
+    return True, "Container bd2_sqlserver iniciado e saudavel."
+
+
+def stop_container() -> tuple[bool, str]:
+    """Derruba o container bd2_sqlserver preservando o volume mssql_data (sem -v)."""
+    daemon_ok, daemon_msg = is_docker_daemon_ready()
+    if not daemon_ok:
+        return False, daemon_msg
+
+    compose_cmd = detect_compose_command()
+    if not compose_cmd:
+        return False, "Docker Compose nao encontrado."
+
+    print(Ansi.style("\nDerrubando container bd2_sqlserver (docker compose down, preservando volume)...", Ansi.YELLOW))
+    res = subprocess.run(
+        [*compose_cmd, "down"],
+        cwd=ROOT_DIR,
+        check=False,
+    )
+    if res.returncode != 0:
+        return False, f"Falha ao derrubar container (codigo {res.returncode})."
+    return True, "Container bd2_sqlserver derrubado com seguranca (dados preservados no volume mssql_data)."
+
+
+def _can_connect_master() -> tuple[bool, str]:
+    """Verifica se o SQL Server aceita conexoes na base master."""
+    try:
+        with get_connection("master", autocommit=True, timeout=5) as conn:
+            with conn.cursor() as cur:
+                cur.execute("SELECT @@VERSION;")
+                version = str(cur.fetchone()[0]).splitlines()[0].strip()
+        return True, version
+    except Exception as exc:
+        return False, str(exc)
+
+
+def provision_databases_if_needed(*, interactive: bool) -> bool:
+    """Se o container subiu sem as bases prontas, executa o pipeline de carga e indices."""
+    master_ok, detail = _can_connect_master()
+    if not master_ok:
+        print(Ansi.style(f"[AVISO] SQL Server ainda nao respondeu no master: {detail}", Ansi.YELLOW))
+        return False
+
+    print()
+    print(Ansi.style("[BASES AUSENTES] O container subiu, mas Ecommerce_Baseline / Ecommerce_Otimizado nao estao completas.", Ansi.YELLOW, Ansi.BOLD))
+    if interactive:
+        ans = input("Deseja gerar/carregar os 6,25M de registros e criar os 9 indices agora? [S/n]: ").strip().lower()
+        if ans not in {"", "s", "sim", "y", "yes"}:
+            return False
+
+    steps: list[tuple[str, Path]] = []
+    required_csvs = ("clientes.csv", "produtos.csv", "pedidos.csv", "itens_pedido.csv")
+    if not all((DATA_DIR / csv_name).exists() for csv_name in required_csvs):
+        steps.append(("Geracao do dataset sintetico (6,25M linhas)", ROOT_DIR / "scripts" / "generate_data.py"))
+    steps.extend(
+        [
+            ("Criacao do esquema Baseline", ROOT_DIR / "scripts" / "create_schema.py"),
+            ("Carga massiva via BULK INSERT", ROOT_DIR / "scripts" / "load_baseline.py"),
+            ("Clonagem de Ecommerce_Otimizado (BACKUP/RESTORE)", ROOT_DIR / "scripts" / "clone_optimized.py"),
+            ("Aplicacao dos 9 indices secundarios", ROOT_DIR / "scripts" / "apply_optimizations.py"),
+        ]
+    )
+
+    for label, script_path in steps:
+        print(Ansi.style(f"\n>>> Provisionando: {label}...", Ansi.CYAN, Ansi.BOLD))
+        res = subprocess.run([sys.executable, str(script_path)], cwd=ROOT_DIR, check=False)
+        if res.returncode != 0:
+            print(Ansi.style(f"[ERRO] Falha na etapa '{label}' (codigo {res.returncode}).", Ansi.RED, Ansi.BOLD))
+            return False
+    return True
+
+
+def ensure_live_startup(config: DemoConfig, *, interactive: bool) -> None:
+    """Garante container ativo e ambiente validado ao iniciar, ou ativa Plano B se indisponivel."""
+    if config.offline_mode:
+        return
+
+    ok, version, info_lines = check_live_environment()
+    if ok:
+        config.sql_version = version
+        return
+
+    if not config.no_docker:
+        already_up = is_container_running()
+        if not already_up:
+            started_ok, start_msg = start_container()
+            if started_ok:
+                config.started_container = True
+                # Pequena espera extra caso o SQL Server tenha acabado de concluir recovery
+                for _ in range(5):
+                    ok, version, info_lines = check_live_environment()
+                    if ok:
+                        config.sql_version = version
+                        return
+                    master_ok, _ = _can_connect_master()
+                    if master_ok:
+                        break
+                    time.sleep(2)
+            else:
+                print()
+                print(Ansi.style(f"[AVISO] {start_msg}", Ansi.YELLOW, Ansi.BOLD))
+
+        ok, version, info_lines = check_live_environment()
+        if ok:
+            config.sql_version = version
+            return
+
+        if is_container_running() and provision_databases_if_needed(interactive=interactive):
+            ok, version, info_lines = check_live_environment()
+            if ok:
+                config.sql_version = version
+                return
+
+    print()
+    print(Ansi.style("[AVISO INICIAL] SQL Server ao vivo indisponivel no momento:", Ansi.YELLOW, Ansi.BOLD))
+    for ln in info_lines:
+        print(f"  {ln}")
+    print(Ansi.style("Iniciando automaticamente em Modo Contingencia Offline (Plano B).", Ansi.MAGENTA, Ansi.BOLD))
+    print(Ansi.style("Quando o Docker estiver pronto, pressione [S] no menu para subir e conectar Ao Vivo.", Ansi.DIM))
+    config.offline_mode = True
+
+
+def teardown_on_exit(config: DemoConfig, *, interactive: bool) -> None:
+    """Derruba o container ao encerrar se ele foi subido pelo script (ou se o usuario confirmar)."""
+    if config.no_docker or config.keep_up:
+        if config.started_container:
+            print(Ansi.style("Mantendo container bd2_sqlserver em execucao (--keep-up).", Ansi.DIM))
+        return
+
+    if config.started_container:
+        ok, msg = stop_container()
+        color = Ansi.GREEN if ok else Ansi.YELLOW
+        print(Ansi.style(msg, color))
+        return
+
+    if interactive and not config.offline_mode and is_container_running():
+        try:
+            ans = input("Container bd2_sqlserver ja estava rodando antes. Deseja derrubar agora? [s/N]: ").strip().lower()
+        except EOFError:
+            ans = ""
+        if ans in {"s", "sim", "y", "yes"}:
+            ok, msg = stop_container()
+            color = Ansi.GREEN if ok else Ansi.YELLOW
+            print(Ansi.style(msg, color))
+
+
 def run_live_scenario(spec: QuerySpec, cache_mode: str) -> None:
     """Executa consulta ao vivo nas duas bases gemeas e exibe metricas + planos reais."""
     print()
@@ -644,10 +869,16 @@ def print_menu(config: DemoConfig) -> None:
         else Ansi.style("COLD CACHE", Ansi.YELLOW, Ansi.BOLD)
     )
 
+    container_txt = (
+        Ansi.style(" | Container: INICIADO PELO SCRIPT (sera derrubado ao sair)", Ansi.CYAN)
+        if config.started_container
+        else ""
+    )
+
     print()
     print(Ansi.style("==============================================================================", Ansi.BLUE))
     print(Ansi.style("  DEMO INTERATIVA — TRABALHO FINAL BD II (SQL SERVER 2022 | 6,25M LINHAS)", Ansi.BOLD))
-    print(f"  Modo: {mode_txt}  |  Cache: {cache_txt}")
+    print(f"  Modo: {mode_txt}  |  Cache: {cache_txt}{container_txt}")
     if config.sql_version:
         print(f"  Motor: {Ansi.style(config.sql_version, Ansi.DIM)}")
     print(Ansi.style("==============================================================================", Ansi.BLUE))
@@ -662,79 +893,88 @@ def print_menu(config: DemoConfig) -> None:
         spec = QUERY_MAP[code]
         print(f"   [{idx:>2}] {Ansi.style(code, Ansi.CYAN)} - {spec.title}")
     print()
-    print(Ansi.style(" CONTROLES E CONTINGENCIA:", Ansi.BOLD))
+    print(Ansi.style(" CONTROLES, CONTAINER E CONTINGENCIA:", Ansi.BOLD))
     print("   [C] Alternar Warm / Cold Cache   [V] Verificar container e bases (6,25M)")
+    print("   [S] Subir container e Ao Vivo    [D] Derrubar container (docker compose down)")
     print("   [B] Alternar Online / Plano B    [O] Abrir .sqlplan grafico no VS Code")
-    print("   [0] Sair")
+    print("   [0] Sair (derruba o container se foi subido pelo script)")
     print(Ansi.style("------------------------------------------------------------------------------", Ansi.BLUE))
 
 
 def interactive_loop(config: DemoConfig) -> None:
-    """Loop principal do menu interativo."""
-    if not config.offline_mode:
-        ok, version, info_lines = check_live_environment()
-        if ok:
-            config.sql_version = version
-        else:
-            print()
-            print(Ansi.style("[AVISO INICIAL] SQL Server ao vivo indisponivel no momento:", Ansi.YELLOW, Ansi.BOLD))
-            for ln in info_lines:
-                print(f"  {ln}")
-            print(Ansi.style("Iniciando automaticamente em Modo Contingencia Offline (Plano B).", Ansi.MAGENTA, Ansi.BOLD))
-            print(Ansi.style("Quando subir o Docker, pressione [B] no menu para voltar ao modo Ao Vivo.", Ansi.DIM))
-            config.offline_mode = True
+    """Loop principal do menu interativo com ciclo completo do container."""
+    ensure_live_startup(config, interactive=True)
 
-    while True:
-        print_menu(config)
-        choice = input("Escolha uma opcao: ").strip().upper()
-        if choice in {"0", "Q", "SAIR", "EXIT"}:
-            print("Encerrando demo interativa.")
-            return
-        if choice == "A":
-            run_guided_official_sequence(config)
-            input("\nRoteiro finalizado. Pressione Enter para voltar ao menu...")
-            continue
-        if choice == "C":
-            config.cache_mode = "cold" if config.cache_mode == "warm" else "warm"
-            continue
-        if choice == "B":
-            if config.offline_mode:
+    try:
+        while True:
+            print_menu(config)
+            choice = input("Escolha uma opcao: ").strip().upper()
+            if choice in {"0", "Q", "SAIR", "EXIT"}:
+                print("Encerrando demo interativa...")
+                return
+            if choice == "A":
+                run_guided_official_sequence(config)
+                input("\nRoteiro finalizado. Pressione Enter para voltar ao menu...")
+                continue
+            if choice == "C":
+                config.cache_mode = "cold" if config.cache_mode == "warm" else "warm"
+                continue
+            if choice == "S":
+                config.offline_mode = False
+                config.no_docker = False
+                ensure_live_startup(config, interactive=True)
+                input("\nPressione Enter para voltar ao menu...")
+                continue
+            if choice == "D":
+                ok, msg = stop_container()
+                print(Ansi.style(msg, Ansi.GREEN if ok else Ansi.RED))
+                if ok:
+                    config.started_container = False
+                    config.offline_mode = True
+                input("\nPressione Enter para voltar ao menu...")
+                continue
+            if choice == "B":
+                if config.offline_mode:
+                    ok, version, info_lines = check_live_environment()
+                    if ok:
+                        config.sql_version = version
+                        config.offline_mode = False
+                    else:
+                        print()
+                        for ln in info_lines:
+                            print(f"  {Ansi.style(ln, Ansi.RED)}")
+                        input("\nNao foi possivel ativar o modo Ao Vivo. Pressione Enter...")
+                else:
+                    config.offline_mode = True
+                continue
+            if choice == "V":
+                print()
                 ok, version, info_lines = check_live_environment()
                 if ok:
                     config.sql_version = version
                     config.offline_mode = False
+                    for ln in info_lines:
+                        print(f"  {Ansi.style(ln, Ansi.GREEN)}")
                 else:
-                    print()
                     for ln in info_lines:
                         print(f"  {Ansi.style(ln, Ansi.RED)}")
-                    input("\nNao foi possivel ativar o modo Ao Vivo. Pressione Enter...")
-            else:
-                config.offline_mode = True
-            continue
-        if choice == "V":
-            print()
-            ok, version, info_lines = check_live_environment()
-            if ok:
-                config.sql_version = version
-                config.offline_mode = False
-                for ln in info_lines:
-                    print(f"  {Ansi.style(ln, Ansi.GREEN)}")
-            else:
-                for ln in info_lines:
-                    print(f"  {Ansi.style(ln, Ansi.RED)}")
-            input("\nPressione Enter para voltar ao menu...")
-            continue
-        if choice == "O":
-            open_sqlplan_in_vscode()
-            input("\nPressione Enter para voltar ao menu...")
-            continue
+                input("\nPressione Enter para voltar ao menu...")
+                continue
+            if choice == "O":
+                open_sqlplan_in_vscode()
+                input("\nPressione Enter para voltar ao menu...")
+                continue
 
-        code = MENU_SHORTCUTS.get(choice, choice)
-        if code in QUERY_MAP:
-            execute_scenario(QUERY_MAP[code], config)
-            input("\nPressione Enter para voltar ao menu...")
-        else:
-            print(Ansi.style(f"Opcao invalida: {choice}", Ansi.RED))
+            code = MENU_SHORTCUTS.get(choice, choice)
+            if code in QUERY_MAP:
+                execute_scenario(QUERY_MAP[code], config)
+                input("\nPressione Enter para voltar ao menu...")
+            else:
+                print(Ansi.style(f"Opcao invalida: {choice}", Ansi.RED))
+    except KeyboardInterrupt:
+        print("\nInterrupcao recebida (Ctrl+C). Encerrando com seguranca...")
+    finally:
+        teardown_on_exit(config, interactive=True)
 
 
 def parse_args() -> argparse.Namespace:
@@ -743,6 +983,8 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument("--offline", action="store_true", help="Inicia diretamente em Modo Plano B offline.")
     parser.add_argument("--cold", action="store_true", help="Inicia com Cold Cache ativo.")
+    parser.add_argument("--keep-up", action="store_true", help="Nao derruba o container ao sair.")
+    parser.add_argument("--no-docker", action="store_true", help="Nao tenta subir nem derrubar o container via Docker.")
     parser.add_argument("--check", action="store_true", help="Executa apenas verificacao de saude e sai.")
     parser.add_argument(
         "--run",
@@ -759,6 +1001,8 @@ def main() -> int:
     config = DemoConfig(
         offline_mode=args.offline,
         cache_mode="cold" if args.cold else "warm",
+        keep_up=args.keep_up,
+        no_docker=args.no_docker,
     )
 
     if args.check:
@@ -769,15 +1013,20 @@ def main() -> int:
 
     if args.run:
         target = args.run.strip().upper()
-        if target == "ALL":
-            for code in OFFICIAL_DEMO_ORDER:
-                execute_scenario(QUERY_MAP[code], config)
-            return 0
-        if target not in QUERY_MAP:
+        if target != "ALL" and target not in QUERY_MAP:
             valid = ", ".join([q.code for q in QUERIES] + ["ALL"])
             print(f"Codigo invalido: {target}. Use um de: {valid}")
             return 2
-        execute_scenario(QUERY_MAP[target], config)
+
+        ensure_live_startup(config, interactive=False)
+        try:
+            if target == "ALL":
+                for code in OFFICIAL_DEMO_ORDER:
+                    execute_scenario(QUERY_MAP[code], config)
+            else:
+                execute_scenario(QUERY_MAP[target], config)
+        finally:
+            teardown_on_exit(config, interactive=False)
         return 0
 
     interactive_loop(config)
