@@ -37,40 +37,26 @@ SUMMARY_STATS_PATH = RESULTS_DIR / "summary_stats.json"
 Q4_INTERMEDIATE_JSON = RESULTS_DIR / "q4_intermediate.json"
 
 OFFICIAL_DEMO_ORDER: tuple[str, ...] = ("Q1", "Q3", "Q4", "W1")
-DEMO_SQL_FILES: dict[str, str] = {
-    "Q1": "01_q1_seek_vs_scan.sql",
-    "Q3": "02_q3_indice_composto.sql",
-    "Q4": "03_q4_eliminacao_key_lookup.sql",
-    "W1": "04_w1_tradeoff_escrita.sql",
-}
-EXTRA_QUERY_ORDER: tuple[str, ...] = ("Q2", "Q5", "Q6", "Q7", "Q8", "Q9", "Q10")
 
-MENU_SHORTCUTS: dict[str, str] = {
-    "1": "Q1",
-    "2": "Q3",
-    "3": "Q4",
-    "4": "W1",
-    "5": "Q2",
-    "6": "Q5",
-    "7": "Q6",
-    "8": "Q7",
-    "9": "Q8",
-    "10": "Q9",
-    "11": "Q10",
+LIVE_MENU_LABELS: dict[str, str] = {
+    "Q1": "Scan vs. Seek (Email)",
+    "Q3": "Indice Composto (Status + Data)",
+    "Q4": "Covering Index (Sem Key Lookup)",
+    "W1": "Escrita 10k INSERT + Rollback",
 }
 
-DEMO_HIGHLIGHTS: dict[str, str] = {
-    "Q1": "Custo O(N) vs. O(log N): Clustered Index Scan (2.856 pag.) -> Index Seek + 1 Key Lookup (6 pag.).",
-    "Q3": "Indice composto (Status, DataPedido): igualdade a esquerda e faixa a direita (8.090 -> 17 pag.).",
-    "Q4": "Eliminacao de 422 Key Lookups com Covering Index INCLUDE (8.090 -> 1.296 -> 5 pag.).",
-    "W1": "Trade-off de escrita: operador Sequence mantem 4 B+ Trees (+85,33% E/S); seguro via ROLLBACK.",
-    "Q2": "Range Seek em DataPedido coberto por (PedidoID, DataPedido) sem Key Lookup.",
-    "Q5": "Juncao de 3 tabelas: dois Hash Match substituidos por Merge Join + Nested Loops.",
-    "Q6": "Paginacao TOP 50 ORDER BY DESC: leitura Backward ordenada sem operador Sort.",
-    "Q7": "Trade-off de CPU: Batch Mode (Hash Match) vs. Row Mode (Stream Aggregate) sob MAXDOP 1.",
-    "Q8": "Sargabilidade textual: LIKE '%Notebook%' (Scan) vs. LIKE 'Notebook%' (Index Seek).",
-    "Q9": "Sargabilidade temporal: YEAR(DataPedido) = 2025 vs. intervalo semiaberto.",
-    "Q10": "Otimizacao logica: subconsulta agregada correlacionada vs. NOT EXISTS (Anti Semi Join).",
+ARTICLE_MENU_LABELS: dict[str, str] = {
+    "Q1": "Email (Scan vs. Seek)",
+    "Q2": "Faixa de datas (DataPedido)",
+    "Q3": "Composto (Status + Data)",
+    "Q4": "Covering Index (INCLUDE)",
+    "Q5": "Juncao 3 tabelas (JOIN)",
+    "Q6": "TOP 50 ORDER BY DESC (Sem Sort)",
+    "Q7": "GROUP BY (Batch vs. Row Mode)",
+    "Q8": "LIKE '%x' vs. LIKE 'x%'",
+    "Q9": "YEAR(Data) vs. intervalo",
+    "Q10": "Subconsulta vs. NOT EXISTS",
+    "W1": "Escrita 10k INSERT + Rollback",
 }
 
 
@@ -147,6 +133,7 @@ class DemoConfig:
     started_container: bool = False
     keep_up: bool = False
     no_docker: bool = False
+    verbose: bool = False
 
 
 def fmt_int(value: int | float) -> str:
@@ -286,6 +273,74 @@ def render_plan_tree(label: str, analysis: PlanAnalysis, *, accent: str) -> None
         print(f"    {indent}{Ansi.style(op_title + obj, Ansi.BOLD)}{Ansi.style(rows_info + mode_info, Ansi.DIM)}")
 
 
+_NOISE_OPS = {
+    "Compute Scalar",
+    "Constant Scan",
+    "Concatenation",
+    "Merge Interval",
+    "Table Spool",
+    "Row Count Spool",
+    "Assert",
+    "Top",
+    "Filter",
+    "Segment",
+    "Parallelism",
+}
+
+
+def summarize_plan_ops(analysis: PlanAnalysis) -> str:
+    """Resume os operadores fisicos principais de um ShowPlanXML em uma linha limpa."""
+    insert_nodes = [
+        n
+        for n in analysis.nodes
+        if "Insert" in n.physical_op or "Update" in n.physical_op or "Delete" in n.physical_op
+    ]
+    if insert_nodes:
+        targets = [n.object_name.split(".")[-1] if n.object_name else n.physical_op for n in insert_nodes]
+        has_seq = any(n.physical_op == "Sequence" for n in analysis.nodes)
+        if has_seq and len(targets) > 1:
+            return f"Sequence -> {len(targets)} B+ Trees ({', '.join(targets)})"
+        return " + ".join(
+            f"{n.physical_op} ({n.object_name})" if n.object_name else n.physical_op for n in insert_nodes
+        )
+
+    meaningful = [n for n in analysis.nodes if n.physical_op not in _NOISE_OPS]
+    if not meaningful:
+        meaningful = list(analysis.nodes)
+
+    if not analysis.has_lookup:
+        non_nl = [n for n in meaningful if n.physical_op != "Nested Loops"]
+        if len(non_nl) == 1:
+            meaningful = non_nl
+
+    parts: list[str] = []
+    for n in meaningful:
+        if n.is_lookup:
+            label = f"Key Lookup ({n.object_name})" if n.object_name else "Key Lookup"
+        elif n.logical_op and n.logical_op != n.physical_op and n.physical_op in {"Hash Match", "Merge Join", "Stream Aggregate"}:
+            label = f"{n.physical_op} [{n.logical_op}]"
+        else:
+            label = f"{n.physical_op} ({n.object_name})" if n.object_name else n.physical_op
+        if label not in parts:
+            parts.append(label)
+
+    summary = " -> ".join(parts)
+    if analysis.primary_mode == "Batch":
+        summary += " [Batch]"
+    elif any(n.physical_op in {"Stream Aggregate", "Hash Match"} for n in meaningful):
+        summary += f" [{analysis.primary_mode}]"
+    return summary
+
+
+def print_sql_compact(spec: QuerySpec) -> None:
+    """Exibe a consulta SQL de forma enxuta."""
+    if spec.sql_baseline == spec.sql_optimized:
+        print(f"SQL: {Ansi.style(spec.sql_baseline, Ansi.CYAN)}")
+    else:
+        print(f"{Ansi.style('SQL Base:', Ansi.YELLOW)} {spec.sql_baseline}")
+        print(f"{Ansi.style('SQL Otim:', Ansi.GREEN)} {spec.sql_optimized}")
+
+
 def print_sql_block(spec: QuerySpec) -> None:
     """Exibe o SQL executado (e indica se houve reescrita sargable/logica)."""
     print(Ansi.style("SQL Executado:", Ansi.BOLD))
@@ -376,13 +431,31 @@ def print_metrics_comparison(
     print(f"  Speedup       : {speedup_summary}")
 
 
+def show_q4_intermediate_compact() -> None:
+    """Exibe em 1 linha o Estagio 2 de Q4 (indice simples sem INCLUDE)."""
+    inter_plan = PLANS_DIR / "optimized" / "q4_intermediate_lookup.sqlplan"
+    if not Q4_INTERMEDIATE_JSON.exists() and not inter_plan.exists():
+        return
+    reads_txt = "1.296"
+    ms_txt = "1"
+    if Q4_INTERMEDIATE_JSON.exists():
+        data = json.loads(Q4_INTERMEDIATE_JSON.read_text(encoding="utf-8"))
+        m = data.get("metrics", {})
+        reads_txt = fmt_int(m.get("logical_reads", 1296))
+        ms_txt = str(m.get("elapsed_time_ms", 1))
+    print(
+        Ansi.style("  Ref. Estagio 2 : ", Ansi.CYAN)
+        + f"{reads_txt} pag | {ms_txt} ms | Index Seek + 422 Key Lookups (sem INCLUDE)"
+    )
+
+
 def show_q4_intermediate_stage() -> None:
     """Exibe o estagio intermediario de Q4 (Index Seek + 422 Key Lookups) como ponte didatica."""
     inter_plan = PLANS_DIR / "optimized" / "q4_intermediate_lookup.sqlplan"
     if not Q4_INTERMEDIATE_JSON.exists() and not inter_plan.exists():
         return
     print()
-    print(Ansi.style("Progressao Completa em 3 Estagios de Q4 (Referencia Capturada):", Ansi.CYAN, Ansi.BOLD))
+    print(Ansi.style("Estagio 2 de Q4 (referencia pre-capturada; sem DDL ao vivo):", Ansi.CYAN, Ansi.BOLD))
     if Q4_INTERMEDIATE_JSON.exists():
         data = json.loads(Q4_INTERMEDIATE_JSON.read_text(encoding="utf-8"))
         m = data.get("metrics", {})
@@ -617,7 +690,7 @@ def ensure_live_startup(config: DemoConfig, *, interactive: bool) -> None:
     for ln in info_lines:
         print(f"  {ln}")
     print(Ansi.style("Iniciando automaticamente em Modo Contingencia Offline (Plano B).", Ansi.MAGENTA, Ansi.BOLD))
-    print(Ansi.style("Quando o Docker estiver pronto, pressione [S] no menu para subir e conectar Ao Vivo.", Ansi.DIM))
+    print(Ansi.style("Quando o Docker estiver pronto, use [3] Controles -> [2] Alternar Modo.", Ansi.DIM))
     config.offline_mode = True
 
 
@@ -645,17 +718,16 @@ def teardown_on_exit(config: DemoConfig, *, interactive: bool) -> None:
             print(Ansi.style(msg, color))
 
 
-def run_live_scenario(spec: QuerySpec, cache_mode: str) -> None:
+def run_live_scenario(spec: QuerySpec, cache_mode: str, *, verbose: bool = False) -> None:
     """Executa consulta ao vivo nas duas bases gemeas e exibe metricas + planos reais."""
     print()
-    print(Ansi.style("=" * 78, Ansi.BLUE))
-    demo_tag = f" | Script: scripts/demo/{DEMO_SQL_FILES[spec.code]}" if spec.code in DEMO_SQL_FILES else ""
-    print(Ansi.style(f"[{spec.code}] {spec.title}", Ansi.BOLD, Ansi.CYAN) + Ansi.style(demo_tag, Ansi.DIM))
-    print(f"Categoria: {spec.category} | Cache: {cache_mode.upper()} | MAXDOP 1")
-    if spec.code in DEMO_HIGHLIGHTS:
-        print(f"Foco     : {DEMO_HIGHLIGHTS[spec.code]}")
-    print(Ansi.style("-" * 78, Ansi.BLUE))
-    print_sql_block(spec)
+    title_line = f"-- [{spec.code}] {spec.title} "
+    print(Ansi.style(title_line + "-" * max(4, 74 - len(title_line)), Ansi.BLUE, Ansi.BOLD))
+    if verbose:
+        print(f"Categoria: {spec.category} | Cache: {cache_mode.upper()} | MAXDOP 1")
+        print_sql_block(spec)
+    else:
+        print_sql_compact(spec)
 
     with (
         get_connection("Ecommerce_Baseline", autocommit=True, timeout=60) as conn_base,
@@ -665,11 +737,10 @@ def run_live_scenario(spec: QuerySpec, cache_mode: str) -> None:
         msg_opt = attach_message_collector(conn_opt)
 
         if cache_mode == "cold":
-            print(Ansi.style("\nLimpando buffer pool e cache de planos (Cold Cache)...", Ansi.YELLOW))
+            print(Ansi.style("Limpando cache (Cold Cache)...", Ansi.YELLOW))
             clear_caches(conn_base)
             clear_caches(conn_opt)
         elif not spec.is_dml_write:
-            # 1x aquecimento rapido para assegurar buffer pool quente em leitura ao vivo
             execute_measured_query(conn_base, msg_base, spec, spec.sql_baseline)
             execute_measured_query(conn_opt, msg_opt, spec, spec.sql_optimized)
 
@@ -678,6 +749,8 @@ def run_live_scenario(spec: QuerySpec, cache_mode: str) -> None:
 
         xml_base = fetch_execution_plan_xml(conn_base, spec, spec.sql_baseline)
         xml_opt = fetch_execution_plan_xml(conn_opt, spec, spec.sql_optimized)
+        plan_base = analyze_showplan_xml(xml_base)
+        plan_opt = analyze_showplan_xml(xml_opt)
 
         print_metrics_comparison(
             spec,
@@ -696,14 +769,20 @@ def run_live_scenario(spec: QuerySpec, cache_mode: str) -> None:
             m_opt.table_io,
         )
 
-        print()
-        print(Ansi.style("Planos de Execucao Reais Capturados Agora (ShowPlanXML):", Ansi.BOLD))
-        render_plan_tree("Ecommerce_Baseline ", analyze_showplan_xml(xml_base), accent=Ansi.YELLOW)
-        print()
-        render_plan_tree("Ecommerce_Otimizado", analyze_showplan_xml(xml_opt), accent=Ansi.GREEN)
-
-        if spec.code == "Q4":
-            show_q4_intermediate_stage()
+        if verbose:
+            print()
+            print(Ansi.style("Planos de Execucao Reais Capturados Agora (ShowPlanXML):", Ansi.BOLD))
+            render_plan_tree("Ecommerce_Baseline ", plan_base, accent=Ansi.YELLOW)
+            print()
+            render_plan_tree("Ecommerce_Otimizado", plan_opt, accent=Ansi.GREEN)
+            if spec.code == "Q4":
+                show_q4_intermediate_stage()
+        else:
+            print()
+            print(f"  {Ansi.style('Plano Baseline :', Ansi.YELLOW)} {summarize_plan_ops(plan_base)}")
+            print(f"  {Ansi.style('Plano Otimizado:', Ansi.GREEN)} {summarize_plan_ops(plan_opt)}")
+            if spec.code == "Q4":
+                show_q4_intermediate_compact()
 
         if spec.is_dml_write:
             with conn_base.cursor() as cur_b, conn_opt.cursor() as cur_o:
@@ -711,30 +790,25 @@ def run_live_scenario(spec: QuerySpec, cache_mode: str) -> None:
                 cnt_b, tran_b = cur_b.fetchone()
                 cur_o.execute("SELECT COUNT_BIG(*), @@TRANCOUNT FROM dbo.ItensPedido;")
                 cnt_o, tran_o = cur_o.fetchone()
-            print()
             print(
                 Ansi.style(
-                    f"[SEGURO] Pos-ROLLBACK: Baseline={fmt_int(cnt_b)} linhas (@@TRANCOUNT={tran_b}) | "
-                    f"Otimizado={fmt_int(cnt_o)} linhas (@@TRANCOUNT={tran_o})",
+                    f"  ROLLBACK OK    : Baseline={fmt_int(cnt_b)} | Otimizado={fmt_int(cnt_o)} (@@TRANCOUNT={tran_b}/{tran_o})",
                     Ansi.GREEN,
                     Ansi.BOLD,
                 )
             )
 
 
-def run_offline_scenario(spec: QuerySpec, cache_mode: str) -> None:
+def run_offline_scenario(spec: QuerySpec, cache_mode: str, *, verbose: bool = False) -> None:
     """Plano B: exibe estatisticas reais (summary_stats.json) e planos .sqlplan pre-capturados."""
     print()
-    print(Ansi.style("=" * 78, Ansi.MAGENTA))
-    print(
-        Ansi.style(f"[{spec.code}] {spec.title}", Ansi.BOLD, Ansi.CYAN)
-        + Ansi.style(" [PLANO B OFFLINE]", Ansi.MAGENTA, Ansi.BOLD)
-    )
-    print(f"Categoria: {spec.category} | Cache: {cache_mode.upper()} (dados do experimento)")
-    if spec.code in DEMO_HIGHLIGHTS:
-        print(f"Foco     : {DEMO_HIGHLIGHTS[spec.code]}")
-    print(Ansi.style("-" * 78, Ansi.MAGENTA))
-    print_sql_block(spec)
+    title_line = f"-- [{spec.code}] {spec.title} [PLANO B] "
+    print(Ansi.style(title_line + "-" * max(4, 74 - len(title_line)), Ansi.MAGENTA, Ansi.BOLD))
+    if verbose:
+        print(f"Categoria: {spec.category} | Cache: {cache_mode.upper()} (dados do experimento)")
+        print_sql_block(spec)
+    else:
+        print_sql_compact(spec)
 
     if SUMMARY_STATS_PATH.exists():
         stats = json.loads(SUMMARY_STATS_PATH.read_text(encoding="utf-8"))
@@ -759,83 +833,53 @@ def run_offline_scenario(spec: QuerySpec, cache_mode: str) -> None:
         print(Ansi.style("Aviso: results/summary_stats.json nao encontrado.", Ansi.YELLOW))
 
     code_lower = spec.code.lower()
-    base_plan = PLANS_DIR / "baseline" / f"{code_lower}_baseline.sqlplan"
-    opt_plan = PLANS_DIR / "optimized" / f"{code_lower}_optimized.sqlplan"
+    base_plan_path = PLANS_DIR / "baseline" / f"{code_lower}_baseline.sqlplan"
+    opt_plan_path = PLANS_DIR / "optimized" / f"{code_lower}_optimized.sqlplan"
 
-    print()
-    print(Ansi.style("Planos de Execucao Pre-Capturados (.sqlplan):", Ansi.BOLD))
-    if base_plan.exists():
-        render_plan_tree(
-            f"Baseline  ({base_plan.name})",
-            analyze_showplan_xml(base_plan.read_text(encoding="utf-8")),
-            accent=Ansi.YELLOW,
-        )
-    if opt_plan.exists():
+    if verbose:
         print()
-        render_plan_tree(
-            f"Otimizado ({opt_plan.name})",
-            analyze_showplan_xml(opt_plan.read_text(encoding="utf-8")),
-            accent=Ansi.GREEN,
-        )
-    if spec.code == "Q4":
-        show_q4_intermediate_stage()
+        print(Ansi.style("Planos de Execucao Pre-Capturados (.sqlplan):", Ansi.BOLD))
+        if base_plan_path.exists():
+            render_plan_tree(
+                f"Baseline  ({base_plan_path.name})",
+                analyze_showplan_xml(base_plan_path.read_text(encoding="utf-8")),
+                accent=Ansi.YELLOW,
+            )
+        if opt_plan_path.exists():
+            print()
+            render_plan_tree(
+                f"Otimizado ({opt_plan_path.name})",
+                analyze_showplan_xml(opt_plan_path.read_text(encoding="utf-8")),
+                accent=Ansi.GREEN,
+            )
+        if spec.code == "Q4":
+            show_q4_intermediate_stage()
+    else:
+        print()
+        if base_plan_path.exists():
+            p_base = analyze_showplan_xml(base_plan_path.read_text(encoding="utf-8"))
+            print(f"  {Ansi.style('Plano Baseline :', Ansi.YELLOW)} {summarize_plan_ops(p_base)}")
+        if opt_plan_path.exists():
+            p_opt = analyze_showplan_xml(opt_plan_path.read_text(encoding="utf-8"))
+            print(f"  {Ansi.style('Plano Otimizado:', Ansi.GREEN)} {summarize_plan_ops(p_opt)}")
+        if spec.code == "Q4":
+            show_q4_intermediate_compact()
 
 
 def execute_scenario(spec: QuerySpec, config: DemoConfig) -> None:
     """Executa no modo atual; se falhar conexao ao vivo, oferece fallback imediato para Plano B."""
     if config.offline_mode:
-        run_offline_scenario(spec, config.cache_mode)
+        run_offline_scenario(spec, config.cache_mode, verbose=config.verbose)
         return
     try:
-        run_live_scenario(spec, config.cache_mode)
+        run_live_scenario(spec, config.cache_mode, verbose=config.verbose)
     except Exception as exc:
         print()
         print(Ansi.style(f"[ERRO AO VIVO] Nao foi possivel executar no SQL Server: {exc}", Ansi.RED, Ansi.BOLD))
         choice = input("Ativar Modo Contingencia Offline (Plano B) agora para esta consulta? [S/n]: ").strip().lower()
         if choice in {"", "s", "sim", "y", "yes"}:
             config.offline_mode = True
-            run_offline_scenario(spec, config.cache_mode)
-
-
-def open_sqlplan_in_vscode() -> None:
-    """Abre arquivos .sqlplan pre-capturados no VS Code (ou exibe os caminhos)."""
-    print()
-    print(Ansi.style("Planos .sqlplan disponiveis (Plano B grafico):", Ansi.BOLD))
-    for idx, code in enumerate(OFFICIAL_DEMO_ORDER, start=1):
-        print(f"  [{idx}] {code} ({DEMO_SQL_FILES[code]})")
-    print("  [5] Escolher outro codigo (Q2, Q5..Q10)")
-    sel = input("Qual cenario abrir? [1-5 ou Enter p/ voltar]: ").strip().upper()
-    if not sel:
-        return
-    if sel in {"1", "2", "3", "4"}:
-        code = OFFICIAL_DEMO_ORDER[int(sel) - 1]
-    elif sel == "5":
-        code = input("Digite o codigo (ex.: Q7): ").strip().upper()
-    else:
-        code = sel
-
-    if code not in QUERY_MAP:
-        print(Ansi.style(f"Codigo desconhecido: {code}", Ansi.RED))
-        return
-
-    c_low = code.lower()
-    files = [
-        PLANS_DIR / "baseline" / f"{c_low}_baseline.sqlplan",
-        PLANS_DIR / "optimized" / f"{c_low}_optimized.sqlplan",
-    ]
-    if code == "Q4":
-        files.insert(1, PLANS_DIR / "optimized" / "q4_intermediate_lookup.sqlplan")
-
-    existing = [p for p in files if p.exists()]
-    for p in existing:
-        print(f"  -> {p.relative_to(ROOT_DIR)}")
-
-    code_bin = shutil.which("code")
-    if code_bin and existing:
-        subprocess.run([code_bin, *[str(p) for p in existing]], check=False)
-        print(Ansi.style("Arquivos enviados para abertura no VS Code.", Ansi.GREEN))
-    elif not code_bin:
-        print(Ansi.style("CLI 'code' nao encontrada no PATH; abra os caminhos acima manualmente.", Ansi.YELLOW))
+            run_offline_scenario(spec, config.cache_mode, verbose=config.verbose)
 
 
 def run_guided_official_sequence(config: DemoConfig) -> None:
@@ -856,49 +900,102 @@ def run_guided_official_sequence(config: DemoConfig) -> None:
                 break
 
 
-def print_menu(config: DemoConfig) -> None:
-    """Exibe o menu interativo compacto e claro para uso em apresentacao."""
-    mode_txt = (
-        Ansi.style("PLANO B OFFLINE (.sqlplan + stats)", Ansi.MAGENTA, Ansi.BOLD)
-        if config.offline_mode
-        else Ansi.style("AO VIVO (SQL Server 2022 Docker)", Ansi.GREEN, Ansi.BOLD)
-    )
-    cache_txt = (
-        Ansi.style("WARM CACHE", Ansi.CYAN, Ansi.BOLD)
-        if config.cache_mode == "warm"
-        else Ansi.style("COLD CACHE", Ansi.YELLOW, Ansi.BOLD)
-    )
+def print_main_menu() -> None:
+    """Exibe o menu principal enxuto."""
+    print()
+    print(Ansi.style("== DEMO BD II (SQL Server 2022) ==", Ansi.BLUE, Ansi.BOLD))
+    print("  [1] Apresentacao ao Vivo")
+    print("  [2] Consultas do Artigo")
+    print("  [3] Controles")
+    print("  [0] Sair")
 
-    container_txt = (
-        Ansi.style(" | Container: INICIADO PELO SCRIPT (sera derrubado ao sair)", Ansi.CYAN)
-        if config.started_container
-        else ""
-    )
 
-    print()
-    print(Ansi.style("==============================================================================", Ansi.BLUE))
-    print(Ansi.style("  DEMO INTERATIVA — TRABALHO FINAL BD II (SQL SERVER 2022 | 6,25M LINHAS)", Ansi.BOLD))
-    print(f"  Modo: {mode_txt}  |  Cache: {cache_txt}{container_txt}")
-    if config.sql_version:
-        print(f"  Motor: {Ansi.style(config.sql_version, Ansi.DIM)}")
-    print(Ansi.style("==============================================================================", Ansi.BLUE))
-    print(Ansi.style(" ROTEIRO PRINCIPAL DA APRESENTACAO (4 CENARIOS-CHAVE):", Ansi.BOLD))
-    for i, code in enumerate(OFFICIAL_DEMO_ORDER, start=1):
-        spec = QUERY_MAP[code]
-        print(f"   [{i}] {Ansi.style(code, Ansi.CYAN, Ansi.BOLD)} - {spec.title}")
-    print(f"   [{Ansi.style('A', Ansi.GREEN, Ansi.BOLD)}] Executar roteiro oficial completo em sequencia (1 -> 2 -> 3 -> 4)")
-    print()
-    print(Ansi.style(" CONSULTAS EXTRAS DO ARTIGO (ARGUICAO DA BANCA):", Ansi.BOLD))
-    for idx, code in enumerate(EXTRA_QUERY_ORDER, start=5):
-        spec = QUERY_MAP[code]
-        print(f"   [{idx:>2}] {Ansi.style(code, Ansi.CYAN)} - {spec.title}")
-    print()
-    print(Ansi.style(" CONTROLES, CONTAINER E CONTINGENCIA:", Ansi.BOLD))
-    print("   [C] Alternar Warm / Cold Cache   [V] Verificar container e bases (6,25M)")
-    print("   [S] Subir container e Ao Vivo    [D] Derrubar container (docker compose down)")
-    print("   [B] Alternar Online / Plano B    [O] Abrir .sqlplan grafico no VS Code")
-    print("   [0] Sair (derruba o container se foi subido pelo script)")
-    print(Ansi.style("------------------------------------------------------------------------------", Ansi.BLUE))
+def live_presentation_menu(config: DemoConfig) -> None:
+    """Submenu rapido para execucao durante a apresentacao ao vivo."""
+    shortcuts = {str(i): code for i, code in enumerate(OFFICIAL_DEMO_ORDER, start=1)}
+    while True:
+        print()
+        print(Ansi.style("-- Apresentacao ao Vivo --", Ansi.CYAN, Ansi.BOLD))
+        for idx, code in shortcuts.items():
+            print(f"  [{idx}] {Ansi.style(code, Ansi.CYAN, Ansi.BOLD)} - {LIVE_MENU_LABELS[code]}")
+        print(f"  [{Ansi.style('5', Ansi.GREEN, Ansi.BOLD)}] Rodar todos em sequencia")
+        print("  [0] Voltar")
+        choice = input("Opcao: ").strip().upper()
+        if choice in {"0", "V", "VOLTAR", ""}:
+            return
+        if choice == "5":
+            run_guided_official_sequence(config)
+            input("\nConcluido. Enter para continuar...")
+            continue
+        code = shortcuts.get(choice, choice)
+        if code in QUERY_MAP:
+            execute_scenario(QUERY_MAP[code], config)
+            input("\nEnter para continuar...")
+        else:
+            print(Ansi.style(f"Opcao invalida: {choice}", Ansi.RED))
+
+
+def article_queries_menu(config: DemoConfig) -> None:
+    """Submenu com todas as 11 operacoes do artigo (Q1-Q10 e W1)."""
+    shortcuts = {str(i): q.code for i, q in enumerate(QUERIES, start=1)}
+    while True:
+        print()
+        print(Ansi.style("-- Consultas do Artigo --", Ansi.CYAN, Ansi.BOLD))
+        for idx, q in enumerate(QUERIES, start=1):
+            print(f"  [{idx:>2}] {Ansi.style(f'{q.code:<3}', Ansi.CYAN)} - {ARTICLE_MENU_LABELS[q.code]}")
+        print("  [ 0] Voltar")
+        choice = input("Opcao: ").strip().upper()
+        if choice in {"0", "V", "VOLTAR", ""}:
+            return
+        code = shortcuts.get(choice, choice)
+        if code in QUERY_MAP:
+            execute_scenario(QUERY_MAP[code], config)
+            input("\nEnter para continuar...")
+        else:
+            print(Ansi.style(f"Opcao invalida: {choice}", Ansi.RED))
+
+
+def controls_menu(config: DemoConfig) -> None:
+    """Submenu essencial de cache, modo e verificacao do ambiente."""
+    while True:
+        print()
+        print(Ansi.style("-- Controles --", Ansi.BLUE, Ansi.BOLD))
+        print("  [1] Alternar Cache (Warm / Cold)")
+        print("  [2] Alternar Modo (Ao Vivo / Plano B)")
+        print("  [3] Verificar ambiente")
+        print("  [0] Voltar")
+        choice = input("Opcao: ").strip().upper()
+        if choice in {"0", "V", "VOLTAR", ""}:
+            return
+        if choice == "1":
+            config.cache_mode = "cold" if config.cache_mode == "warm" else "warm"
+            print(Ansi.style(f"Cache ativo: {config.cache_mode.upper()}", Ansi.CYAN))
+            continue
+        if choice == "2":
+            if config.offline_mode:
+                config.offline_mode = False
+                config.no_docker = False
+                ensure_live_startup(config, interactive=True)
+                if not config.offline_mode:
+                    print(Ansi.style("Modo ativo: AO VIVO", Ansi.GREEN))
+            else:
+                config.offline_mode = True
+                print(Ansi.style("Modo ativo: PLANO B", Ansi.MAGENTA))
+            continue
+        if choice == "3":
+            print()
+            ok, version, info_lines = check_live_environment()
+            if ok:
+                config.sql_version = version
+                config.offline_mode = False
+                for ln in info_lines:
+                    print(f"  {Ansi.style(ln, Ansi.GREEN)}")
+            else:
+                for ln in info_lines:
+                    print(f"  {Ansi.style(ln, Ansi.RED)}")
+            input("\nEnter para continuar...")
+            continue
+        print(Ansi.style(f"Opcao invalida: {choice}", Ansi.RED))
 
 
 def interactive_loop(config: DemoConfig) -> None:
@@ -907,72 +1004,24 @@ def interactive_loop(config: DemoConfig) -> None:
 
     try:
         while True:
-            print_menu(config)
-            choice = input("Escolha uma opcao: ").strip().upper()
+            print_main_menu()
+            choice = input("Opcao: ").strip().upper()
             if choice in {"0", "Q", "SAIR", "EXIT"}:
-                print("Encerrando demo interativa...")
+                print("Encerrando...")
                 return
-            if choice == "A":
-                run_guided_official_sequence(config)
-                input("\nRoteiro finalizado. Pressione Enter para voltar ao menu...")
-                continue
-            if choice == "C":
-                config.cache_mode = "cold" if config.cache_mode == "warm" else "warm"
-                continue
-            if choice == "S":
-                config.offline_mode = False
-                config.no_docker = False
-                ensure_live_startup(config, interactive=True)
-                input("\nPressione Enter para voltar ao menu...")
-                continue
-            if choice == "D":
-                ok, msg = stop_container()
-                print(Ansi.style(msg, Ansi.GREEN if ok else Ansi.RED))
-                if ok:
-                    config.started_container = False
-                    config.offline_mode = True
-                input("\nPressione Enter para voltar ao menu...")
-                continue
-            if choice == "B":
-                if config.offline_mode:
-                    ok, version, info_lines = check_live_environment()
-                    if ok:
-                        config.sql_version = version
-                        config.offline_mode = False
-                    else:
-                        print()
-                        for ln in info_lines:
-                            print(f"  {Ansi.style(ln, Ansi.RED)}")
-                        input("\nNao foi possivel ativar o modo Ao Vivo. Pressione Enter...")
-                else:
-                    config.offline_mode = True
-                continue
-            if choice == "V":
-                print()
-                ok, version, info_lines = check_live_environment()
-                if ok:
-                    config.sql_version = version
-                    config.offline_mode = False
-                    for ln in info_lines:
-                        print(f"  {Ansi.style(ln, Ansi.GREEN)}")
-                else:
-                    for ln in info_lines:
-                        print(f"  {Ansi.style(ln, Ansi.RED)}")
-                input("\nPressione Enter para voltar ao menu...")
-                continue
-            if choice == "O":
-                open_sqlplan_in_vscode()
-                input("\nPressione Enter para voltar ao menu...")
-                continue
-
-            code = MENU_SHORTCUTS.get(choice, choice)
-            if code in QUERY_MAP:
-                execute_scenario(QUERY_MAP[code], config)
-                input("\nPressione Enter para voltar ao menu...")
+            if choice == "1":
+                live_presentation_menu(config)
+            elif choice == "2":
+                article_queries_menu(config)
+            elif choice == "3":
+                controls_menu(config)
+            elif choice in QUERY_MAP:
+                execute_scenario(QUERY_MAP[choice], config)
+                input("\nEnter para continuar...")
             else:
                 print(Ansi.style(f"Opcao invalida: {choice}", Ansi.RED))
     except KeyboardInterrupt:
-        print("\nInterrupcao recebida (Ctrl+C). Encerrando com seguranca...")
+        print("\nEncerrando com seguranca...")
     finally:
         teardown_on_exit(config, interactive=True)
 
@@ -991,6 +1040,7 @@ def parse_args() -> argparse.Namespace:
         metavar="CODE",
         help="Executa diretamente um cenario (Q1..Q10, W1 ou ALL) sem abrir o menu.",
     )
+    parser.add_argument("--verbose", "-v", action="store_true", help="Exibe arvore completa de planos e I/O por tabela.")
     parser.add_argument("--no-color", action="store_true", help="Desativa cores ANSI no terminal.")
     return parser.parse_args()
 
@@ -1003,6 +1053,7 @@ def main() -> int:
         cache_mode="cold" if args.cold else "warm",
         keep_up=args.keep_up,
         no_docker=args.no_docker,
+        verbose=args.verbose,
     )
 
     if args.check:
